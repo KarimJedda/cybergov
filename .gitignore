@@ -1,3 +1,4 @@
 DEPLOYMENT.md
 .env
 *.env
+__pycache__
