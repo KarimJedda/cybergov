@@ -19,15 +19,18 @@ pull:
 
 # the deployments section allows you to provide configuration for deploying flows
 deployments:
-- name: null
-  version: null
-  tags: []
-  description: null
-  schedule: {}
-  flow_name: null
-  entrypoint: null
-  parameters: {}
+- name: 'Cybergov - PROD'
+  flow_name: 'Polkadot Governance Voting'
+  entrypoint: governance_flow.py:governance_flow
+  tags:
+    - prod
   work_pool:
-    name: null
-    work_queue_name: null
-    job_variables: {}
+    name: 'prod-cybergov-pool'
+
+- name: 'Cybergov - STAGING'
+  flow_name: 'Polkadot Governance Voting'
+  tags:
+  - staging
+  entrypoint: governance_flow.py:governance_flow
+  work_pool:
+    name: 'staging-cybergov-pool'
