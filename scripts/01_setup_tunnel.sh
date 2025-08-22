@@ -34,7 +34,7 @@ ssh -i "${KEY_FILE_PATH}" \
 echo "Tunnel command executed. Waiting for 5 seconds for the connection to establish..."
 sleep 5
 
-echo "Running test against the local forwarded port (${LOCAL_PORT})..."
-curl --fail --silent --show-error "http://localhost:${LOCAL_PORT}"
+echo "Running test against the local forwarded port (${PREFECT_PORT})..."
+curl --fail --silent --show-error "http://localhost:${PREFECT_PORT}"
 
 echo "Successfully connected to Prefect through the SSH tunnel."
