@@ -1,4 +1,4 @@
-name: PROD - Cybergov run
+name: STAGING - Cybergov
 
 on:
   # Run every day at 5:30 AM UTC
@@ -7,17 +7,18 @@ on:
 
 jobs:
   cybergov:
-    name: Cybergov PROD
+    name: Cybergov STAGING
     runs-on: ubuntu-latest
 
     environment: Cybergov
 
     env:
-      ENV: prod
+      ENV: staging
       PREFECT_API_URL: "http://localhost:4200"
-      PREFECT_POOL_NAME: prod-cybergov-pool
+      PREFECT_POOL_NAME: staging-cybergov-pool
 
     steps:
+      ## Runner setup 
       - name: 1. Checkout repository code
         uses: actions/checkout@v4
 
