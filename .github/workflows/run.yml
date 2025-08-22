@@ -21,6 +21,8 @@ jobs:
     name: Cybergov 
     runs-on: ubuntu-latest
 
+    environment: Cybergov
+
     env:
       ENV: ${{ github.event.inputs.environment || 'staging' }}
       PREFECT_API_URL: "http://localhost:4200"
