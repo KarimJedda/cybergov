@@ -16,7 +16,7 @@ jobs:
 
     env:
       ENV: staging
-      PREFECT_API_URL: "http://localhost:4200"
+      PREFECT_API_URL: "http://localhost:4200/api"
 
     steps:
       ## Runner setup 
