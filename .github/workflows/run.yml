@@ -15,7 +15,6 @@ jobs:
     env:
       ENV: prod
       PREFECT_API_URL: "http://localhost:4200"
-      PREFECT_POOL_NAME: prod-cybergov-pool
 
     steps:
       - name: 1. Checkout repository code
@@ -41,5 +40,5 @@ jobs:
 
       - name: 5. Start Cybergov Worker
         run: |
-          prefect worker start --pool '${PREFECT_POOL_NAME}' --run-once
+          prefect worker start --pool 'prod-cybergov-pool' --run-once
         

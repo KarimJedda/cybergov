@@ -4,7 +4,7 @@ on:
   # Run every day at 5:30 AM UTC
   schedule:
     - cron: '30 5 * * *'
-  
+
   workflow_dispatch:
 
 jobs:
@@ -17,7 +17,6 @@ jobs:
     env:
       ENV: staging
       PREFECT_API_URL: "http://localhost:4200"
-      PREFECT_POOL_NAME: staging-cybergov-pool
 
     steps:
       ## Runner setup 
@@ -44,5 +43,5 @@ jobs:
 
       - name: 5. Start Cybergov Worker
         run: |
-          prefect worker start --pool '${PREFECT_POOL_NAME}' --run-once
+          prefect worker start --pool 'staging-cybergov-pool' --run-once
         
