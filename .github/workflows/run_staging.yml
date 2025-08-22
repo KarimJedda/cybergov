@@ -42,7 +42,6 @@ jobs:
           SSH_HOST: ${{ secrets.SSH_HOST }}
 
       - name: 5. Start Cybergov Worker
-        working-directory: ./src
         run: |
           prefect worker start --pool 'staging-cybergov-pool' --run-once
         
