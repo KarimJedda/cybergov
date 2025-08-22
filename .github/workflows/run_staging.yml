@@ -41,6 +41,14 @@ jobs:
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
 
+      - name: Debug Workspace
+        run: |
+          echo "Current working directory is:"
+          pwd
+          echo "GITHUB_WORKSPACE is: ${{ github.workspace }}"
+          echo "Listing all files in the workspace:"
+          ls -R ${{ github.workspace }}
+          
       - name: 5. Start Cybergov Worker
         run: |
           prefect worker start --pool 'staging-cybergov-pool' --run-once
