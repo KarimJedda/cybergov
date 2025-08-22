@@ -16,7 +16,7 @@ push: null
 # mainly for workers at runtime, not for deploy
 pull:
 - prefect.deployments.steps.set_working_directory:
-    directory: "{{ prefect.runtime.environ.GITHUB_WORKSPACE }}/src"
+    directory: "."
 
 # the deployments section allows you to provide configuration for deploying flows
 deployments:
