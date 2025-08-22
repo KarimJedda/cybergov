@@ -1,4 +1,4 @@
-name: Test with Direct SSH Tunnel
+name: Cybergov run
 
 on:
   # Run every day at 5:30 AM UTC
