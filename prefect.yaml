@@ -16,13 +16,13 @@ push: null
 # mainly for workers at runtime, not for deploy
 pull:
 - prefect.deployments.steps.set_working_directory:
-    directory: '.'
+    directory: '/home/runner/work/cybergov/cybergov'
 
 # the deployments section allows you to provide configuration for deploying flows
 deployments:
 - name: 'Cybergov - PROD'
   flow_name: 'Polkadot Governance Voting'
-  entrypoint: governance_flow.py:governance_flow
+  entrypoint: src/governance_flow.py:governance_flow
   tags:
     - prod
   work_pool:
@@ -32,6 +32,6 @@ deployments:
   flow_name: 'Polkadot Governance Voting'
   tags:
   - staging
-  entrypoint: governance_flow.py:governance_flow
+  entrypoint: src/governance_flow.py:governance_flow
   work_pool:
     name: 'staging-cybergov-pool'
