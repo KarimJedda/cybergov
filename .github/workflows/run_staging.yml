@@ -4,6 +4,8 @@ on:
   # Run every day at 5:30 AM UTC
   schedule:
     - cron: '30 5 * * *'
+  
+  workflow_dispatch:
 
 jobs:
   cybergov:
