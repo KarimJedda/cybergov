@@ -2,3 +2,4 @@ DEPLOYMENT.md
 .env
 *.env
 __pycache__
+STATE_MACHINE.md
