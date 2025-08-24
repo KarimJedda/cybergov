@@ -4,6 +4,8 @@ import datetime
 import s3fs
 
 from utils.helpers import setup_logging, get_config_from_env
+
+# Made as separate steps, to run again manually in case of big fumble 
 import utils.fetch_subsquare_data as fetch_subsquare_data
 import utils.cleanup_subsquare_data as cleanup_subsquare_data
 import utils.run_magi_eval as run_magi_eval
@@ -48,6 +50,7 @@ def main():
         last_good_step = "fetching proposal data from Subsquare"
 
         logger.info("02 - Cleaning up proposal data...")
+>>>>>   NEXT THING HERE 
         cleanup_subsquare_data.run(s3, proposal_s3_path, network, proposal_id)
         last_good_step = "cleaning up proposal data"
 
