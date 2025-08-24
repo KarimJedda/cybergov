@@ -1,5 +1,7 @@
 name: 'Cybergov Proposal Processor'
 
+run-name: "🗳️ Process Proposal #${{ inputs.proposal_id }} on ${{ inputs.network }}"
+
 on:
   workflow_dispatch:
     inputs:
@@ -10,11 +12,15 @@ on:
       network:
         description: 'The network (polkadot, kusama, etc.)'
         required: true
-        type: string
+        type: choice
+        options:
+        - polkadot
+        - kusama
+        - paseo
 
 jobs:
   cybergov:
-    name: Cybergov STAGING
+    name: 'Running Cybergov on #${{ inputs.proposal_id }} on ${{ inputs.network }}'
     runs-on: ubuntu-latest
 
     environment: Cybergov
@@ -27,7 +33,6 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
     steps:
-      ## Runner setup 
       - name: 1. Checkout repository code
         uses: actions/checkout@v4
 
