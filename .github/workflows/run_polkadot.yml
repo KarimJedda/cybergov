@@ -1,6 +1,6 @@
-name: 'Cybergov Proposal Processor'
+name: 'Polkadot - Cybergov Proposal Processor'
 
-run-name: "🗳️ Process Proposal #${{ inputs.proposal_id }} on ${{ inputs.network }}"
+run-name: "🗳️ Process Proposal #${{ inputs.proposal_id }} on Polkadot"
 
 on:
   workflow_dispatch:
@@ -9,25 +9,17 @@ on:
         description: 'The proposal ID to process'
         required: true
         type: string
-      network:
-        description: 'The network (polkadot, kusama, etc.)'
-        required: true
-        type: choice
-        options:
-        - polkadot
-        - kusama
-        - paseo
 
 jobs:
   cybergov:
-    name: 'Running Cybergov on #${{ inputs.proposal_id }} on ${{ inputs.network }}'
+    name: 'Cybergov for #${{ inputs.proposal_id }} on Polkadot'
     runs-on: ubuntu-latest
 
     environment: Cybergov
 
     env:
       PROPOSAL_ID: ${{ inputs.proposal_id }}
-      NETWORK: ${{ inputs.network }}
+      NETWORK: 'polkadot'
       S3_BUCKET: ${{ secrets.S3_BUCKET }}
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
