@@ -48,7 +48,7 @@ def run(s3, proposal_s3_path, network, ref_id):
         logger.info(f"\t✅ Success! Proposal data saved to {output_filename}")
 
     except httpx.RequestError as e:
-        logger.error(f"\t❌ Error: Failed to fetch the URL {url}.")
+        logger.error(f"\t❌ Error: Failed to fetch the URL {url}. Reason {e}")
         raise ProposalFetchError()
     except (ValueError, AttributeError, json.JSONDecodeError) as e:
         logger.error(f"\t❌ Error: Failed to parse the page or JSON data.")

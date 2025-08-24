@@ -5,6 +5,10 @@ import s3fs
 
 from utils.helpers import setup_logging, get_config_from_env
 import utils.fetch_subsquare_data as fetch_subsquare_data
+import utils.cleanup_subsquare_data as cleanup_subsquare_data
+import utils.run_magi_eval as run_magi_eval
+import utils.submit_final_vote as submit_final_vote
+import utils.post_subsquare_comment as post_subsquare_comment
 
 def main():
     logger = setup_logging()
@@ -37,23 +41,26 @@ def main():
 
     try:
         logger.info("01 - Fetching proposal data from Subsquare...")
+        # TODO This is EXTREMELY fragile for whatever reason
+        # perhaps we should get it out in its own little thing
+        # I don't why subsquare is unstable
         fetch_subsquare_data.run(s3, proposal_s3_path, network, proposal_id)
         last_good_step = "fetching proposal data from Subsquare"
 
         logger.info("02 - Cleaning up proposal data...")
-        # Needs s3 object, proposal_id & network
+        cleanup_subsquare_data.run(s3, proposal_s3_path, network, proposal_id)
         last_good_step = "cleaning up proposal data"
 
         logger.info("03 - Running MAGI V0 Evaluation...")
-        # Needs s3 object, proposal_id, network & openrouter keys
+        run_magi_eval.run(s3, proposal_s3_path, network, proposal_id)
         last_good_step = "running MAGI V0 Evaluation"
 
         logger.info("04 - Submitting MAGI V0 Vote...")
-        # Needs s3 object, proposal_id, network & wallet seed
+        submit_final_vote.run(s3, proposal_s3_path, network, proposal_id)
         last_good_step = "submitting MAGI V0 Vote"
 
         logger.info("05 - Posting Subsquare comment...")
-        # Needs s3 object, proposal_id, network & wallet seed
+        post_subsquare_comment.run(s3, proposal_s3_path, network, proposal_id)
         last_good_step = "posting Subsquare comment"
         
         logger.info("🎉 Proposal processing and voting finished successfully!")
