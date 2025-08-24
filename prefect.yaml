@@ -21,23 +21,9 @@ pull:
 # the deployments section allows you to provide configuration for deploying flows
 deployments:
 - name: 'Cybergov MAGI Dispatcher'
-  flow_name: 'Production Governance Scheduler'
+  flow_name: 'Governance Scheduler'
   entrypoint: src/cybergov_dispatcher.py:dipatch_flow
   tags:
     - prod
   work_pool:
-    name: 'cybergov-prod-dispatcher-pool'
-    job_variables:
-        env:
-            ENVIRONMENT: prod
-
-- name: 'Testing Cybergov MAGI Dispatcher'
-  flow_name: 'Testnet Governance Scheduler'
-  tags:
-  - test
-  entrypoint: src/cybergov_dispatcher.py:dipatch_flow
-  work_pool:
-    name: 'cybergov-test-dispatcher-pool'
-    job_variables:
-        env:
-            ENVIRONMENT: test
+    name: 'cybergov-dispatcher-pool'
