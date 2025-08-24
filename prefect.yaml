@@ -15,15 +15,27 @@ push: null
 # pull section allows you to provide instructions for cloning this project in remote locations
 # mainly for workers at runtime, not for deploy
 pull:
-- prefect.deployments.steps.set_working_directory:
-    directory: '/home/runner/work/cybergov/cybergov'
+# for Github, needs fiddling
+# - prefect.deployments.steps.set_working_directory:
+#    directory: '/home/runner/work/cybergov/cybergov'
+ - prefect.deployments.steps.set_working_directory:
+    directory: '/home/spongebob/Desktop/AI_DAO/cybergov'
+
 
 # the deployments section allows you to provide configuration for deploying flows
 deployments:
 - name: 'Cybergov MAGI Dispatcher'
+  description: 'Tracks new proposals and schedules their scraping.'
   flow_name: 'Governance Scheduler'
-  entrypoint: src/cybergov_dispatcher.py:dipatch_flow
-  tags:
-    - prod
+  entrypoint: src/cybergov_dispatcher.py:cybergov_dispatcher_flow
+  work_pool:
+    name: 'cybergov-dispatcher-pool'
+
+
+# This is what gets dispatched, it triggers a GitHub Action run
+- name: 'Cybergov MAGI Runner'
+  description: 'Triggers GitHub Actions to run scraping & voting. All processing logic is on GitHub Actions.'
+  flow_name: 'Governance Workflow Trigger'
+  entrypoint: src/cybergov_scraper.py:proposal_scraper_flow
   work_pool:
     name: 'cybergov-dispatcher-pool'

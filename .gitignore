@@ -3,3 +3,4 @@ DEPLOYMENT.md
 *.env
 __pycache__
 STATE_MACHINE.md
+.venv
