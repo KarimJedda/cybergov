@@ -24,8 +24,6 @@ s3://your-bucket/proposals/{network}/{proposal_id}/
 ├── metadata.json           # Single source of truth for the *final* outcome and status
 ├── raw_subsquare.json		# Raw data extracted from Subsquare
 ├── content.md 				# Cleaned, extracted content for the LLMs
-├── linked_files/
-│   └── some_document.pdf	
 ├── llm_analyses/           # NEW: Directory for individual LLM outputs
 │   ├── balthazar.json
 │   ├── caspar.json
@@ -34,7 +32,7 @@ s3://your-bucket/proposals/{network}/{proposal_id}/
 └── vote_receipt.json 		# TX hash and result from the on-chain vote
 ```
 
-network will be one of polkadot, kusama, paseo. These files will be publicly accessible. 
+network will be one of polkadot, kusama, paseo. These files will be publicly accessible but served through a CDN. 
 
 The metadata.json serves us as a barebones state machine. 
 

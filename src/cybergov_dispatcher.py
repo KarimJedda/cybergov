@@ -11,6 +11,8 @@ from prefect.blocks.system import String, Secret
 
 # --- Configuration Constants (Scraper-specific) ---
 SCRAPER_DEPLOYMENT_ID = "595089d8-5f04-46e5-91b7-c8f6935275fc" # TODO make this a var or something
+
+## We wait a little bit before scraping, so people get time to add their links etc. 
 SCHEDULE_DELAY_DAYS = 2
 
 
@@ -63,7 +65,7 @@ async def get_last_processed_id_from_s3(
         logger.error(f"Failed to list S3 directory 's3://{s3_path}': {e}")
         raise
 
-# ... (The find_new_proposals and schedule_scraping_task tasks remain unchanged) ...
+# TODO, get latest proposals from the chain, directly
 @task
 async def find_new_proposals(network: str, last_id: int) -> List[Dict]:
     """DUMMY: Simulates fetching proposals from Subsquare with an index > last_id."""
