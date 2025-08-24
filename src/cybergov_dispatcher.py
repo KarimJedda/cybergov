@@ -5,6 +5,7 @@ import re
 from typing import List, Optional, Dict
 from prefect import flow, task, get_run_logger
 import s3fs
+import httpx
 
 # --- Prefect Blocks Integration (Generic) ---
 from prefect.blocks.system import String, Secret
@@ -14,6 +15,17 @@ SCRAPER_DEPLOYMENT_ID = "595089d8-5f04-46e5-91b7-c8f6935275fc" # TODO make this 
 
 ## We wait a little bit before scraping, so people get time to add their links etc. 
 SCHEDULE_DELAY_DAYS = 2
+
+## Cybergov V0 parameters we can tune later
+parameters = {
+    ## skip proposals before this id, regardless of what's going on
+    'min_proposal_id': {
+        'polkadot': 1723,
+        'kusama': 578,
+        'paseo': 96
+    },
+    'max_proposal_id': {} # for later
+}
 
 
 # --- S3 and API Tasks ---
@@ -67,15 +79,55 @@ async def get_last_processed_id_from_s3(
 
 # TODO, get latest proposals from the chain, directly
 @task
-async def find_new_proposals(network: str, last_id: int) -> List[Dict]:
-    """DUMMY: Simulates fetching proposals from Subsquare with an index > last_id."""
+async def find_new_proposals(network: str, last_known_id: int) -> List[Dict]:
+    """Fetching proposals from Subsquare with an index > last_known_id."""
     logger = get_run_logger()
-    logger.info(f"DUMMY: Checking for new proposals on '{network}' after ID {last_id}...")
-    num_new = 1
-    if num_new == 0:
+    logger.info(f"Checking for new proposals on '{network}' after ID {last_known_id}...")
+
+    try:
+        # Using sidacar, am lazy
+        secret_block = await Secret.load(f"{network}-sidecar-url")
+        sidecar_url = secret_block.get()
+    except Exception as e:
+        logger.error(f"Failed to load secret for network '{network}': {e}")
+        raise
+
+    url = f"{network_sidecar_url}/pallets/referenda/storage/referendumCount"
+
+    headers = {
+        "Accept": "application/json"
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+
+            data = response.json()
+            last_proposal_id = data.get("value", None)
+
+            if last_proposal_id is not None:
+                logger.info(f"Successfully fetched last proposal ID for '{network}': {last_proposal_id}")
+            else:
+                logger.warning(f"No 'value' found in JSON response: {data}")
+
+    except httpx.RequestError as e:
+        logger.error(f"HTTP request failed for {url}: {e}")
+        raise
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Non-200 response: {e.response.status_code} - {e.response.text}")
+        raise
+    except ValueError as e:
+        logger.error(f"Response is not valid JSON: {e} - Body: {response.text}")
+        raise
+
+    min_threshold = parameters.get("min_proposal_id", {}).get(network, 0)
+    if proposal_id < min_threshold:
+        logger.info(f"Proposal ID {proposal_id} is below network's min proposal threshold ({min_threshold}), skipping.")
         return []
-    new_proposals = [{"proposalIndex": last_id + i + 1} for i in range(num_new)]
-    logger.info(f"DUMMY: Found {len(new_proposals)} new proposals for '{network}'.")
+
+    new_proposals = [{"proposalIndex": last_known_id + i + 1} for i in range(last_proposal_id)]
+    logger.info(f"Found {len(new_proposals)} new proposals for '{network}'.")
     return new_proposals
 
 @task
@@ -98,7 +150,7 @@ async def schedule_scraping_task(proposal_id: int, network: str):
             deployment_id=SCRAPER_DEPLOYMENT_ID,
             parameters={"proposal_id": proposal_id, "network": network},
             state=Scheduled()
-            #state=Scheduled(scheduled_time=scheduled_time)
+            # state=Scheduled(scheduled_time=scheduled_time) # 
         )
 
 # --- The Main Dispatcher Flow ---
@@ -141,7 +193,7 @@ async def cybergov_dispatcher_flow(
             secret_key=secret_key,
             endpoint_url=endpoint_url
         )
-        new_proposals = await find_new_proposals(network=net, last_id=last_known_id)
+        new_proposals = await find_new_proposals(network=net, last_known_id=last_known_id)
         if not new_proposals:
             logger.info(f"No new proposals to schedule for '{net}'.")
             continue
