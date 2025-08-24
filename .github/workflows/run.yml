@@ -1,22 +1,33 @@
-name: PROD - Cybergov run
+name: 'Cybergov Proposal Processor'
 
 on:
-  # Run every day at 5:30 AM UTC
-  schedule:
-    - cron: '30 5 * * *'
+  workflow_dispatch:
+    inputs:
+      proposal_id:
+        description: 'The proposal ID to process'
+        required: true
+        type: string
+      network:
+        description: 'The network (polkadot, kusama, etc.)'
+        required: true
+        type: string
 
 jobs:
   cybergov:
-    name: Cybergov PROD
+    name: Cybergov STAGING
     runs-on: ubuntu-latest
 
     environment: Cybergov
 
     env:
-      ENV: prod
-      PREFECT_API_URL: "http://localhost:4200/api"
+      PROPOSAL_ID: ${{ inputs.proposal_id }}
+      NETWORK: ${{ inputs.network }}
+      S3_BUCKET: ${{ secrets.S3_BUCKET }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
     steps:
+      ## Runner setup 
       - name: 1. Checkout repository code
         uses: actions/checkout@v4
 
@@ -30,15 +41,5 @@ jobs:
         run: |
           pip install -r requirements.txt
 
-      ## Infra setup, too lazy to host a runner tbh
-      - name: 4. Establish SSH Tunnel directly
-        run: ./scripts/01_setup_tunnel.sh
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-
-      - name: 5. Start Cybergov Worker
-        run: |
-          prefect worker start --pool 'prod-cybergov-pool' --run-once
-        
+      - name: 4. Run Evaluation and Voting Script
+        run: python src/cybergov_evaluate_single_proposal_and_vote.py
