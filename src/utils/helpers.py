@@ -1,0 +1,46 @@
+import logging
+import os 
+import sys 
+from typing import Dict, Optional, Tuple
+
+def setup_logging():
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.StreamHandler(sys.stdout)
+        ]
+    )
+    return logging.getLogger(__name__)
+
+def get_config_from_env() -> Dict[str, str]:
+    logger = setup_logging()
+
+    required_vars = [
+        "PROPOSAL_ID",
+        "NETWORK",
+        "S3_BUCKET_NAME",
+        "S3_ACCESS_KEY_ID",
+        "S3_ACCESS_KEY_SECRET",
+        "S3_ENDPOINT_URL",
+        # "CDN_BASE_PATH"
+        # "OPENROUTER_MODEL_BALTHAZAR",
+        # "OPENROUTER_MODEL_CASPAR",
+        # "OPENROUTER_MODEL_MELCHIOR",
+        # "OPENROUTER_API_KEY"
+    ]
+    config = {}
+    missing_vars = []
+    
+    for var in required_vars:
+        value = os.getenv(var)
+        if not value:
+            missing_vars.append(var)
+        config[var.upper()] = value
+
+    if missing_vars:
+        logger.error(f"ABORTING: Missing required environment variables: {', '.join(missing_vars)}")
+        sys.exit(1)
+        
+    logger.info("✓ Configuration loaded successfully from environment variables.")
+    return config
