@@ -1,7 +1,5 @@
 import json
-import datetime
 import sys
-import requests
 from bs4 import BeautifulSoup
 import httpx
 from .helpers import setup_logging
