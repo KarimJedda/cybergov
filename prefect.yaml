@@ -20,35 +20,24 @@ pull:
 
 # the deployments section allows you to provide configuration for deploying flows
 deployments:
-- name: 'Polkadot MAGI'
-  flow_name: 'Polkadot Governance Voting'
-  entrypoint: src/governance_flow.py:governance_flow
+- name: 'Cybergov MAGI Dispatcher'
+  flow_name: 'Production Governance Scheduler'
+  entrypoint: src/cybergov_dispatcher.py:dipatch_flow
   tags:
     - prod
   work_pool:
-    name: 'cybergov-polkadot-pool'
+    name: 'cybergov-prod-dispatcher-pool'
     job_variables:
         env:
-            NETWORK: polkadot
+            ENVIRONMENT: prod
 
-- name: 'Kusama MAGI'
-  flow_name: 'Kusama Governance Voting'
-  entrypoint: src/governance_flow.py:governance_flow
-  tags:
-    - prod
-  work_pool:
-    name: 'cybergov-kusama-pool'
-    job_variables:
-        env:
-            NETWORK: kusama
-
-- name: 'Testnet MAGI'
-  flow_name: 'Polkadot Testnet (Paseo) Governance Voting'
+- name: 'Testing Cybergov MAGI Dispatcher'
+  flow_name: 'Testnet Governance Scheduler'
   tags:
   - test
-  entrypoint: src/governance_flow.py:governance_flow
+  entrypoint: src/cybergov_dispatcher.py:dipatch_flow
   work_pool:
-    name: 'cybergov-test-pool'
+    name: 'cybergov-test-dispatcher-pool'
     job_variables:
         env:
-            NETWORK: paseo
+            ENVIRONMENT: test

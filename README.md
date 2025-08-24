@@ -11,6 +11,8 @@ LLMs participating in governance decisions. Inspired from Evangelion - Magi syst
 - Every day, an automated pipeline (GitHub + Prefect) is run, which logs the CIDs of all the files used for the decision and casts a vote. All the information for this decision is provided in the logs of GitHub action runners (which aren't self hosted to signal that there was no interference, this obviously mitigates the trust assumption a bit but not completely)
 - When everything worked, the metadata.json is set to "VOTED_SUCCESS"
 
+Note: In the event of a bug, or required intervention, we have to document things somehow. An idea would be to provide a correction file to the proposal folder. Like, when a proposal was altered significantly after we voted on it, or something else.
+
 
 
 ## How the data is stored
