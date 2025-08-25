@@ -19,7 +19,7 @@ pull:
 # - prefect.deployments.steps.set_working_directory:
 #    directory: '/home/runner/work/cybergov/cybergov'
  - prefect.deployments.steps.set_working_directory:
-    directory: '/home/spongebob/Desktop/AI_DAO/cybergov'
+    directory: '/home/spongebob'
 
 
 # the deployments section allows you to provide configuration for deploying flows

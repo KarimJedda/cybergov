@@ -6,12 +6,17 @@ from typing import List, Optional, Dict
 from prefect import flow, task, get_run_logger
 import s3fs
 import httpx
+import os 
 
 # --- Prefect Blocks Integration (Generic) ---
 from prefect.blocks.system import String, Secret
+from prefect.server.schemas.filters import FlowRunFilter, FlowRunFilterState, FlowRunFilterStateType, DeploymentFilter, DeploymentFilterId, FlowRunFilterName
+from prefect.client.orchestration import get_client
+from prefect.states import Scheduled
+from prefect.client.schemas.objects import State, StateType
 
 # --- Configuration Constants (Scraper-specific) ---
-SCRAPER_DEPLOYMENT_ID = "595089d8-5f04-46e5-91b7-c8f6935275fc" # TODO make this a var or something
+SCRAPER_DEPLOYMENT_ID = "f5df5397-1738-4ebe-84c5-0e4588e55069" # TODO make this a var or something
 
 ## We wait a little bit before scraping, so people get time to add their links etc. 
 SCHEDULE_DELAY_DAYS = 2
@@ -54,13 +59,13 @@ async def get_last_processed_id_from_s3(
             }
         )
 
-        existing_proposal_paths = s3.find(s3_path, maxdepth=1)
+        existing_proposal_paths = s3.ls(s3_path, detail=False)
 
         proposal_ids = []
         for path in existing_proposal_paths:
-            match = re.search(r'/(\d+)$', path)
-            if match:
-                proposal_ids.append(int(match.group(1)))
+            last_component = os.path.basename(path.rstrip('/'))
+            if last_component.isdigit():
+                proposal_ids.append(int(last_component))
 
         if not proposal_ids:
             logger.info(f"No existing proposals found for '{network}'. Starting from 0.")
@@ -86,8 +91,8 @@ async def find_new_proposals(network: str, last_known_id: int) -> List[Dict]:
 
     try:
         # Using sidacar, am lazy
-        secret_block = await Secret.load(f"{network}-sidecar-url")
-        sidecar_url = secret_block.get()
+        network_sidecar_block = await Secret.load(f"{network}-sidecar-url")
+        network_sidecar_url = network_sidecar_block.get()
     except Exception as e:
         logger.error(f"Failed to load secret for network '{network}': {e}")
         raise
@@ -100,16 +105,18 @@ async def find_new_proposals(network: str, last_known_id: int) -> List[Dict]:
 
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get(url, headers=headers)
+            response = await client.get(url, headers=headers, timeout=15.0)
             response.raise_for_status()
 
             data = response.json()
             last_proposal_id = data.get("value", None)
 
             if last_proposal_id is not None:
+                last_proposal_id = int(last_proposal_id)
                 logger.info(f"Successfully fetched last proposal ID for '{network}': {last_proposal_id}")
             else:
                 logger.warning(f"No 'value' found in JSON response: {data}")
+                raise
 
     except httpx.RequestError as e:
         logger.error(f"HTTP request failed for {url}: {e}")
@@ -122,20 +129,55 @@ async def find_new_proposals(network: str, last_known_id: int) -> List[Dict]:
         raise
 
     min_threshold = parameters.get("min_proposal_id", {}).get(network, 0)
-    if proposal_id < min_threshold:
-        logger.info(f"Proposal ID {proposal_id} is below network's min proposal threshold ({min_threshold}), skipping.")
+    start_from_id = max(last_known_id, min_threshold)
+
+    if last_proposal_id < start_from_id:
+        logger.info(f"Proposal ID {last_proposal_id} is below network's min proposal threshold ({min_threshold}), skipping.")
         return []
 
-    new_proposals = [{"proposalIndex": last_known_id + i + 1} for i in range(last_proposal_id)]
+    new_proposals = [{"proposalIndex": i} for i in range(start_from_id + 1, last_proposal_id)]
     logger.info(f"Found {len(new_proposals)} new proposals for '{network}'.")
     return new_proposals
+
+@task
+async def check_if_already_scheduled(proposal_id: int, network: str) -> bool:
+    """
+    Checks the Prefect API to see if a scraper run for this proposal
+    already exists (in a non-failed state).
+    """
+    logger = get_run_logger()
+    logger.info(f"Checking for existing flow runs for {network}-{proposal_id}...")
+
+    async with get_client() as client:
+        existing_runs = await client.read_flow_runs(
+            flow_run_filter=FlowRunFilter(
+                name=FlowRunFilterName(like_=f"scrape-{network}-{proposal_id}"),
+                state=FlowRunFilterState(
+                    type=FlowRunFilterStateType(
+                        any_=[StateType.RUNNING, StateType.COMPLETED, StateType.PENDING, StateType.SCHEDULED]
+                    )
+                )
+            ),
+            deployment_filter=DeploymentFilter(
+                id=DeploymentFilterId(any_=[SCRAPER_DEPLOYMENT_ID])
+            )
+        )
+
+    if existing_runs:
+        logger.warning(
+            f"Found {len(existing_runs)} existing run(s) for proposal {proposal_id} on '{network}'. Skipping scheduling."
+        )
+        return True
+    
+    logger.info(
+        f"No existing runs found for proposal {proposal_id} on '{network}'. It's safe to schedule."
+    )
+    return False
 
 @task
 async def schedule_scraping_task(proposal_id: int, network: str):
     """Schedules the cybergov_scraper flow to run in the future."""
     logger = get_run_logger()
-    from prefect.client.orchestration import get_client
-    from prefect.states import Scheduled
 
     delay = datetime.timedelta(days=SCHEDULE_DELAY_DAYS)
     scheduled_time = datetime.datetime.now(datetime.timezone.utc) + delay
@@ -181,7 +223,9 @@ async def cybergov_dispatcher_flow(
         logger.warning(
             f"MANUAL OVERRIDE: Scheduling single proposal {proposal_id} on '{network}'."
         )
-        await schedule_scraping_task(proposal_id=proposal_id, network=network)
+        is_already_scheduled = await check_if_already_scheduled(proposal_id=proposal_id, network=network)
+        if not is_already_scheduled:
+            await schedule_scraping_task(proposal_id=proposal_id, network=network)
         return
 
     logger.info(f"Running in scheduled mode for networks: {networks}")
@@ -200,4 +244,9 @@ async def cybergov_dispatcher_flow(
 
         for proposal in new_proposals:
             p_id = proposal["proposalIndex"]
-            await schedule_scraping_task(proposal_id=p_id, network=net)
+            is_already_scheduled = await check_if_already_scheduled(
+                proposal_id=p_id, 
+                network=net
+            )
+            if not is_already_scheduled:
+                await schedule_scraping_task(proposal_id=p_id, network=net)
