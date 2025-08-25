@@ -50,7 +50,6 @@ def main():
         last_good_step = "fetching proposal data from Subsquare"
 
         logger.info("02 - Cleaning up proposal data...")
->>>>>   NEXT THING HERE 
         cleanup_subsquare_data.run(s3, proposal_s3_path, network, proposal_id)
         last_good_step = "cleaning up proposal data"
 
