@@ -11,7 +11,7 @@ from prefect.server.schemas.filters import FlowRunFilter, FlowRunFilterState, Fl
 from prefect.client.orchestration import get_client
 from prefect.client.schemas.objects import StateType
 
-INFERENCE_TRIGGER_DEPLOYMENT_ID = "089b702f-f2fc-4605-8f08-44d222727695" 
+INFERENCE_TRIGGER_DEPLOYMENT_ID = "327f24eb-04db-4d30-992d-cce455b4b241" 
 
 INFERENCE_SCHEDULE_DELAY_MINUTES = 30
 
