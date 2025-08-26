@@ -30,6 +30,6 @@ deployments:
 - name: 'Cybergov MAGI Inference Trigger'
   description: 'Triggers GitHub Actions to run scraping & voting. All processing logic is on GitHub Actions.'
   flow_name: 'Governance Workflow Trigger'
-  entrypoint: src/cybergov_inference.py:github_action_trigger
+  entrypoint: src/cybergov_inference.py:github_action_trigger_and_monitor
   work_pool:
     name: 'cybergov-dispatcher-pool'
