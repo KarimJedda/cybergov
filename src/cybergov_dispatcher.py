@@ -16,7 +16,7 @@ from prefect.states import Scheduled
 from prefect.client.schemas.objects import State, StateType
 
 # --- Configuration Constants (Scraper-specific) ---
-SCRAPER_DEPLOYMENT_ID = "f5df5397-1738-4ebe-84c5-0e4588e55069" # TODO make this a var or something
+DATA_SCRAPER_DEPLOYMENT_ID = "f5df5397-1738-4ebe-84c5-0e4588e55069" # TODO make this a var or something
 
 ## We wait a little bit before scraping, so people get time to add their links etc. 
 SCHEDULE_DELAY_DAYS = 2
@@ -32,8 +32,6 @@ parameters = {
     'max_proposal_id': {} # for later
 }
 
-
-# --- S3 and API Tasks ---
 @task
 async def get_last_processed_id_from_s3(
     network: str,
@@ -159,7 +157,7 @@ async def check_if_already_scheduled(proposal_id: int, network: str) -> bool:
                 )
             ),
             deployment_filter=DeploymentFilter(
-                id=DeploymentFilterId(any_=[SCRAPER_DEPLOYMENT_ID])
+                id=DeploymentFilterId(any_=[DATA_SCRAPER_DEPLOYMENT_ID])
             )
         )
 
@@ -189,7 +187,7 @@ async def schedule_scraping_task(proposal_id: int, network: str):
     async with get_client() as client:
         await client.create_flow_run_from_deployment(
             name=f"scrape-{network}-{proposal_id}",
-            deployment_id=SCRAPER_DEPLOYMENT_ID,
+            deployment_id=DATA_SCRAPER_DEPLOYMENT_ID,
             parameters={"proposal_id": proposal_id, "network": network},
             state=Scheduled()
             # state=Scheduled(scheduled_time=scheduled_time) # 
@@ -207,7 +205,6 @@ async def cybergov_dispatcher_flow(
     Checks for new proposals using Scaleway S3, then schedules scraping tasks.
     """
     logger = get_run_logger()
-
 
     s3_bucket_block = await String.load("scaleway-bucket-name")
     endpoint_block = await String.load("scaleway-s3-endpoint-url")

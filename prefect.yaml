@@ -1,28 +1,16 @@
-# Welcome to your prefect.yaml file! You can use this file for storing and managing
-# configuration for deploying your flows. We recommend committing this file to source
-# control along with your flow code.
-
-# Generic metadata about this project
 name: cybergov-local-prefect
 prefect-version: 3.4.14
 
-# build section allows you to manage and build docker images
 build: null
-
-# push section allows you to manage if and how this project is uploaded to remote locations
 push: null
 
-# pull section allows you to provide instructions for cloning this project in remote locations
-# mainly for workers at runtime, not for deploy
 pull:
 # for Github, needs fiddling
 # - prefect.deployments.steps.set_working_directory:
 #    directory: '/home/runner/work/cybergov/cybergov'
  - prefect.deployments.steps.set_working_directory:
-    directory: '/home/spongebob'
+    directory: '/home/spongebob/cybergov'
 
-
-# the deployments section allows you to provide configuration for deploying flows
 deployments:
 - name: 'Cybergov MAGI Dispatcher'
   description: 'Tracks new proposals and schedules their scraping.'
@@ -31,11 +19,17 @@ deployments:
   work_pool:
     name: 'cybergov-dispatcher-pool'
 
+- name: 'Cybergov MAGI Proposal Scraper'
+  description: 'Flow that is responsible to fetch data for the proposal'
+  flow_name: 'Proposal Scraper'
+  entrypoint: src/cybergov_data_scraper.py:fetch_proposal_data
+  work_pool:
+    name: 'cybergov-dispatcher-pool'
 
 # This is what gets dispatched, it triggers a GitHub Action run
 - name: 'Cybergov MAGI Inference Trigger'
   description: 'Triggers GitHub Actions to run scraping & voting. All processing logic is on GitHub Actions.'
   flow_name: 'Governance Workflow Trigger'
-  entrypoint: src/cybergov_inferece.py:github_action_trigger
+  entrypoint: src/cybergov_inference.py:github_action_trigger
   work_pool:
     name: 'cybergov-dispatcher-pool'

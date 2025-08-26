@@ -4,3 +4,4 @@ DEPLOYMENT.md
 __pycache__
 STATE_MACHINE.md
 .venv
+.ruff_cache

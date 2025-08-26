@@ -2,7 +2,8 @@ from prefect import flow, task, get_run_logger
 from prefect.blocks.system import Secret
 import httpx
 
-# --- Configuration Constants ---
+# To ensure transparency, this has to run on GitHub actions
+# That way it is public, and the data + logic used to vote are transparent
 GITHUB_REPO = "KarimJedda/cybergov"
 
 NETWORK_MAPPING = {
