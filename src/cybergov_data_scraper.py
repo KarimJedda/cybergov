@@ -186,7 +186,7 @@ async def schedule_inference_task(proposal_id: int, network: str):
 
 
 @flow(name="Fetch Proposal Data")
-def fetch_proposal_data(network: str, proposal_id: int):
+async def fetch_proposal_data(network: str, proposal_id: int):
     """
     Fetch relevant data for a proposal, parse its data, and save it to S3.
     """
@@ -210,12 +210,12 @@ def fetch_proposal_data(network: str, proposal_id: int):
 
         logger.info("All good! Now scheduling the inference in 30 minutes. If inference successful, schedule vote & comment too!.")
 
-        is_already_scheduled = check_if_already_scheduled(
+        is_already_scheduled = await check_if_already_scheduled(
                 proposal_id=proposal_id, 
                 network=network
             )
         if not is_already_scheduled:
-            schedule_inference_task(proposal_id=proposal_id, network=network)
+            await schedule_inference_task(proposal_id=proposal_id, network=network)
 
     except (ProposalFetchError, ProposalParseError) as e:
         logger.error(f"Pipeline failed for {network} ref {proposal_id}. Reason: {e}")
