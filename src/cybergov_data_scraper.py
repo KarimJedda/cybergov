@@ -181,6 +181,7 @@ async def schedule_inference_task(proposal_id: int, network: str):
             name=f"inference-{network}-{proposal_id}",
             deployment_id=INFERENCE_TRIGGER_DEPLOYMENT_ID,
             parameters={"proposal_id": proposal_id, "network": network},
+            # state=Scheduled(scheduled_time=scheduled_time)
         )
 
 
