@@ -27,7 +27,7 @@ parameters = {
     'min_proposal_id': {
         'polkadot': 1723,
         'kusama': 578,
-        'paseo': 96
+        'paseo': 99
     },
     'max_proposal_id': {} # for later
 }
