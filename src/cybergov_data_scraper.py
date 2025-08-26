@@ -138,7 +138,7 @@ async def check_if_already_scheduled(proposal_id: int, network: str) -> bool:
     logger.info(f"Checking for existing flow runs for inference-{network}-{proposal_id}...")
 
     async with get_client() as client:
-        existing_runs = await client.read_flow_runs(
+        existing_runs = client.read_flow_runs(
             flow_run_filter=FlowRunFilter(
                 name=FlowRunFilterName(like_=f"inference-{network}-{proposal_id}"),
                 state=FlowRunFilterState(
@@ -177,7 +177,7 @@ async def schedule_inference_task(proposal_id: int, network: str):
     )
 
     async with get_client() as client:
-        await client.create_flow_run_from_deployment(
+        client.create_flow_run_from_deployment(
             name=f"inference-{network}-{proposal_id}",
             deployment_id=INFERENCE_TRIGGER_DEPLOYMENT_ID,
             parameters={"proposal_id": proposal_id, "network": network},
@@ -210,7 +210,7 @@ def fetch_proposal_data(network: str, proposal_id: int):
 
         logger.info("All good! Now scheduling the inference in 30 minutes. If inference successful, schedule vote & comment too!.")
 
-        is_already_scheduled = await check_if_already_scheduled(
+        is_already_scheduled = check_if_already_scheduled(
                 proposal_id=proposal_id, 
                 network=network
             )
