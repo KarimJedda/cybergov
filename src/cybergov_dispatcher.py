@@ -16,7 +16,7 @@ from prefect.states import Scheduled
 from prefect.client.schemas.objects import State, StateType
 
 # --- Configuration Constants (Scraper-specific) ---
-DATA_SCRAPER_DEPLOYMENT_ID = "f5df5397-1738-4ebe-84c5-0e4588e55069" # TODO make this a var or something
+DATA_SCRAPER_DEPLOYMENT_ID = "00b42f26-0ccf-4d18-b127-a273b2006838" # TODO make this a var or something
 
 ## We wait a little bit before scraping, so people get time to add their links etc. 
 SCHEDULE_DELAY_DAYS = 2
