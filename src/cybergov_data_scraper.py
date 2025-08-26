@@ -29,9 +29,10 @@ class ProposalParseError(Exception):
 def fetch_subsquare_proposal_data(url: str) -> str:
     """Fetches the raw HTML content from a given URL."""
     logger = get_run_logger()
-    user_agent_secret = Secret.load_sync("cybergov-scraper-user-agent")
+    user_agent_secret = Secret.load("cybergov-scraper-user-agent")
+    user_agent = user_agent_secret.get()
 
-    headers = {"User-Agent": user_agent_secret.get()}
+    headers = {"User-Agent": user_agent}
     
     logger.info(f"Fetching data from: {url}")
     try:
