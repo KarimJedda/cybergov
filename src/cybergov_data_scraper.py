@@ -138,7 +138,7 @@ async def check_if_already_scheduled(proposal_id: int, network: str) -> bool:
     logger.info(f"Checking for existing flow runs for inference-{network}-{proposal_id}...")
 
     async with get_client() as client:
-        existing_runs = client.read_flow_runs(
+        existing_runs = await client.read_flow_runs(
             flow_run_filter=FlowRunFilter(
                 name=FlowRunFilterName(like_=f"inference-{network}-{proposal_id}"),
                 state=FlowRunFilterState(
