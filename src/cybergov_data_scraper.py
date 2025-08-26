@@ -1,12 +1,15 @@
 import json
 from typing import Dict, Any, Optional
 
-from bs4 import BeautifulSoup
 import httpx
 from prefect import flow, task, get_run_logger
 from prefect.blocks.system import Secret, String
 from prefect.tasks import exponential_backoff
 import s3fs
+import datetime 
+from prefect.server.schemas.filters import FlowRunFilter, FlowRunFilterState, FlowRunFilterStateType, DeploymentFilter, DeploymentFilterId, FlowRunFilterName
+from prefect.client.orchestration import get_client
+from prefect.client.schemas.objects import StateType
 
 INFERENCE_TRIGGER_DEPLOYMENT_ID = "089b702f-f2fc-4605-8f08-44d222727695" 
 
