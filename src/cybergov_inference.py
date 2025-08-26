@@ -52,8 +52,8 @@ def trigger_github_action_worker(proposal_id: int, network: str):
         logger.error(f"Failed to trigger GitHub Action. Status: {response.status_code}, Body: {response.text}")
         response.raise_for_status()
 
-@flow(name="Proposal Scraper", log_prints=True)
-def proposal_scraper_flow(proposal_id: int, network: str):
+@flow(name="GitHub Action Trigger", log_prints=True)
+def github_action_trigger(proposal_id: int, network: str):
     """
     A simple, parameterized flow that is scheduled by the dispatcher.
     Its sole purpose is to trigger the GitHub Action worker for a specific proposal.
