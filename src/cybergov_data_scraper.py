@@ -101,10 +101,10 @@ def fetch_and_store_raw_subsquare_data(
     Returns the S3 path of the stored data, or None if skipped.
     """
 
-    s3_bucket_block = await String.load("scaleway-bucket-name")
-    endpoint_block = await String.load("scaleway-s3-endpoint-url")
-    access_key_block = await Secret.load("scaleway-write-access-key-id")
-    secret_key_block = await Secret.load("scaleway-write-secret-access-key")
+    s3_bucket_block = String.load("scaleway-bucket-name")
+    endpoint_block = String.load("scaleway-s3-endpoint-url")
+    access_key_block = Secret.load("scaleway-write-access-key-id")
+    secret_key_block = Secret.load("scaleway-write-secret-access-key")
 
     s3_bucket = s3_bucket_block.value
     endpoint_url = endpoint_block.value
