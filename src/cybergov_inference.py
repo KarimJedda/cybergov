@@ -168,6 +168,5 @@ def github_action_trigger_and_monitor(proposal_id: int, network: str):
         wait_for=[find_workflow_run]
     )
     
-    # Step 4 (Conditional): This will only run if the previous task succeeded
     if conclusion == 'success':
-        logger.info("GitHub Action was successful! Running subsequent steps.")
+        logger.info("✅ Magi Inference was successful! Scheduling vote.")
