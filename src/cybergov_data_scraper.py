@@ -8,10 +8,14 @@ from prefect.blocks.system import Secret, String
 from prefect.tasks import exponential_backoff
 import s3fs
 
+INFERENCE_TRIGGER_DEPLOYMENT_ID = "089b702f-f2fc-4605-8f08-44d222727695" 
+
+INFERENCE_SCHEDULE_DELAY_MINUTES = 30
+
 NETWORK_MAP = {
-    "polkadot": "https://polkadot.subsquare.io",
-    "kusama": "https://kusama.subsquare.io",
-    "paseo": "https://paseo.subsquare.io"
+    "polkadot": "https://polkadot-api.subsquare.io/gov2/referendums",
+    "kusama": "https://kusama-api.subsquare.io/gov2/referendums",
+    "paseo": "https://paseo-api.subsquare.io/gov2/referendums"
 }
 
 class ProposalFetchError(Exception):
@@ -21,49 +25,40 @@ class ProposalParseError(Exception):
     pass
 
 @task(
-    name="Fetch Proposal HTML from Subsquare",
+    name="Fetch Proposal JSON from Subsquare API",
     retries=3,
     retry_delay_seconds=exponential_backoff(backoff_factor=10),
     retry_jitter_factor=0.2
 )
-def fetch_subsquare_proposal_data(url: str) -> str:
-    """Fetches the raw HTML content from a given URL."""
+def fetch_subsquare_proposal_data(url: str) -> Dict[str, Any]:
+    """
+    Fetches and parses proposal data from a Subsquare JSON API endpoint.
+    """
     logger = get_run_logger()
     user_agent_secret = Secret.load("cybergov-scraper-user-agent")
     user_agent = user_agent_secret.get()
-
-    headers = {"User-Agent": user_agent}
     
-    logger.info(f"Fetching data from: {url}")
+    headers = {
+        "User-Agent": user_agent,
+        "Accept": "application/json"
+    }
+    
+    logger.info(f"Fetching JSON data from API: {url}")
+    
     try:
         with httpx.Client() as client:
             response = client.get(url, headers=headers, timeout=30)
             response.raise_for_status()
-            logger.info(f"Successfully fetched HTML from {url}")
-            return response.text
+            data = response.json()
+            logger.info(f"Successfully fetched and parsed JSON from {url}")
+            return data
+            
     except httpx.RequestError as e:
         logger.error(f"HTTP Request failed for URL {url}: {e}")
-        raise ProposalFetchError(f"Failed to fetch {url}") from e
-
-
-@task(name="Extract JSON from HTML")
-def extract_json_from_html(html_content: str) -> Dict[str, Any]:
-    """Parses HTML to find and extract the '__NEXT_DATA__' JSON blob."""
-    logger = get_run_logger()
-    logger.info("Parsing HTML to find the '__NEXT_DATA__' script tag...")
-    try:
-        soup = BeautifulSoup(html_content, 'html.parser')
-        script_tag = soup.find('script', {'id': '__NEXT_DATA__'})
-        
-        if not script_tag or not script_tag.string:
-            raise ValueError("Could not find a valid script tag with id='__NEXT_DATA__'.")
-            
-        json_data = json.loads(script_tag.string)
-        logger.info("Successfully extracted JSON data.")
-        return json_data
-    except (ValueError, json.JSONDecodeError) as e:
-        logger.error(f"Failed to parse page or JSON data: {e}")
-        raise ProposalParseError("The page structure might have changed or JSON is malformed.") from e
+        raise ProposalFetchError(f"Failed to fetch data from {url}") from e
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse JSON response from {url}: {e}")
+        raise ProposalParseError(f"API response from {url} was not valid JSON.") from e
 
 
 @task(
@@ -113,11 +108,10 @@ def fetch_and_store_raw_subsquare_data(
     secret_key = secret_key_block.get()
 
     base_url = NETWORK_MAP[network]
-    proposal_url = f"{base_url}/referenda/{proposal_id}"
+    proposal_url = f"{base_url}/{proposal_id}"
     s3_output_path = f"{s3_bucket}/proposals/{network}/{proposal_id}/raw_subsquare_data.json"
 
-    subsquare_html = fetch_subsquare_proposal_data(proposal_url)
-    proposal_data = extract_json_from_html(subsquare_html)
+    proposal_data = fetch_subsquare_proposal_data(proposal_url)
     
     save_to_s3(
         data=proposal_data,
@@ -129,6 +123,63 @@ def fetch_and_store_raw_subsquare_data(
     )
 
     return s3_output_path
+
+
+@task
+async def check_if_already_scheduled(proposal_id: int, network: str) -> bool:
+    """
+    Checks the Prefect API to see if a scraper run for this proposal
+    already exists (in a non-failed state).
+    """
+    logger = get_run_logger()
+    logger.info(f"Checking for existing flow runs for inference-{network}-{proposal_id}...")
+
+    async with get_client() as client:
+        existing_runs = await client.read_flow_runs(
+            flow_run_filter=FlowRunFilter(
+                name=FlowRunFilterName(like_=f"inference-{network}-{proposal_id}"),
+                state=FlowRunFilterState(
+                    type=FlowRunFilterStateType(
+                        any_=[StateType.RUNNING, StateType.COMPLETED, StateType.PENDING, StateType.SCHEDULED]
+                    )
+                )
+            ),
+            deployment_filter=DeploymentFilter(
+                id=DeploymentFilterId(any_=[INFERENCE_TRIGGER_DEPLOYMENT_ID])
+            )
+        )
+
+    if existing_runs:
+        logger.warning(
+            f"Found {len(existing_runs)} existing inference run(s) for proposal {proposal_id} on '{network}'. Skipping scheduling."
+        )
+        return True
+    
+    logger.info(
+        f"No existing inference runs found for proposal {proposal_id} on '{network}'. It's safe to schedule."
+    )
+    return False
+
+
+@task
+async def schedule_inference_task(proposal_id: int, network: str):
+    """Schedules the cybergov_scraper flow to run in the future."""
+    logger = get_run_logger()
+
+    delay = datetime.timedelta(minutes=INFERENCE_SCHEDULE_DELAY_MINUTES)
+    scheduled_time = datetime.datetime.now(datetime.timezone.utc) + delay
+    logger.info(
+        f"Scheduling MAGI inference for proposal {proposal_id} on '{network}' "
+        f"to run at {scheduled_time.isoformat()}"
+    )
+
+    async with get_client() as client:
+        await client.create_flow_run_from_deployment(
+            name=f"inference-{network}-{proposal_id}",
+            deployment_id=INFERENCE_TRIGGER_DEPLOYMENT_ID,
+            parameters={"proposal_id": proposal_id, "network": network},
+        )
+
 
 
 @flow(name="Fetch Proposal Data")
@@ -155,6 +206,13 @@ def fetch_proposal_data(network: str, proposal_id: int):
         logger.info("Placeholder for LLM prompt generation.")
 
         logger.info("All good! Now scheduling the inference in 30 minutes. If inference successful, schedule vote & comment too!.")
+
+        is_already_scheduled = await check_if_already_scheduled(
+                proposal_id=proposal_id, 
+                network=network
+            )
+        if not is_already_scheduled:
+            schedule_inference_task(proposal_id=proposal_id, network=network)
 
     except (ProposalFetchError, ProposalParseError) as e:
         logger.error(f"Pipeline failed for {network} ref {proposal_id}. Reason: {e}")
