@@ -21,15 +21,15 @@ In order to ensure reproducibility, everything should ideally be driven of immut
 
 ```
 s3://your-bucket/proposals/{network}/{proposal_id}/
-├── metadata.json           # Single source of truth for the *final* outcome and status
-├── raw_subsquare.json		# Raw data extracted from Subsquare
-├── content.md 				# Cleaned, extracted content for the LLMs
+├── raw_subsquare.json		  # Raw data extracted from Subsquare
+├── content.md 				      # Cleaned, extracted content for the LLMs
 ├── llm_analyses/           # NEW: Directory for individual LLM outputs
 │   ├── balthazar.json
 │   ├── caspar.json
 │   └── melchior.json
-├── consensus_report.md     # NEW: The result of the democratic aggregation
-└── vote_receipt.json 		# TX hash and result from the on-chain vote
+├── manifest.json           # hashes of inputs / outputs for provenance
+├── manifest.json.sig       # signature of the manifest with the cybergov key
+└── vote.json 		          # The final vote result
 ```
 
 network will be one of polkadot, kusama, paseo. These files will be publicly accessible but served through a CDN. 
@@ -38,35 +38,7 @@ The metadata.json serves us as a barebones state machine.
 
 
 
-## Metadata.json 
-
-```
-{
-  "proposal_id": 123,
-  "network": "polkadot",
-  "title": "Proposal Title",
-  "content": "content",
-  "content_hash": "hash of the body of the proposal",
-  "proposer": "1...",
-  "status": "AWAITING_LLM_ANALYSIS", // Core state field
-  "last_verified_at": "2023-10-27T14:00:00Z",
-  "vote_history": [
-    {
-      "decision": "AYE",
-      "rationale": "Initial analysis showed alignment with treasury growth.",
-      "voted_at": "2023-10-26T11:30:00Z",
-      "vote_tx_hash": "0x...",
-    }
-  ],
-  "deadline_block": 18000000,
-  "deadline_utc": "2023-10-28T12:00:00Z",
-  "created_at": "2023-10-25T10:00:00Z",
-  "last_updated": "2023-10-25T14:30:00Z",
-  "error_message": null,
-}
-```
-
-## llm_analyses/responses.json
+## llm_analyses/magi.json
 
 ```
 {
@@ -79,7 +51,7 @@ The metadata.json serves us as a barebones state machine.
 }
 ```
 
-## Consensus_report.json
+## vote.json
 
 ```
 {

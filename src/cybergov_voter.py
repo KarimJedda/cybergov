@@ -118,6 +118,18 @@ def submit_transaction_sidecar(network: str, tx_hex: str) -> str:
     return tx_hash
 
 
+@task 
+def get_inference_result(network: str, proposal_id: int):
+    """
+    Fetch MAGI vote result from S3 and execute vote
+
+    Returns: 
+        vote_result: aye, nay or abstain 
+        conviction: how convinced (if aye or nay)
+        remark_text: the hash of vote.json the data that was used to vote 
+    """
+    pass 
+
 @flow(name="Vote on Polkadot OpenGov", log_prints=True)
 def vote_on_opengov_proposal(
     network: str,
