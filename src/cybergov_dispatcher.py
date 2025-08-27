@@ -88,7 +88,7 @@ async def find_new_proposals(network: str, last_known_id: int) -> List[Dict]:
     logger.info(f"Checking for new proposals on '{network}' after ID {last_known_id}...")
 
     try:
-        # Using sidacar, am lazy
+        # Using sidacar, am lazy, also this will allow to automatically be ready for the migration. nice
         network_sidecar_block = await Secret.load(f"{network}-sidecar-url")
         network_sidecar_url = network_sidecar_block.get()
     except Exception as e:
