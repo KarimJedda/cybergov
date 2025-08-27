@@ -2,6 +2,12 @@ import httpx
 from prefect import flow, get_run_logger, task
 from prefect.blocks.system import Secret
 from substrateinterface import Keypair, SubstrateInterface
+from prefect.server.schemas.filters import FlowRunFilter, FlowRunFilterState, FlowRunFilterStateType, DeploymentFilter, DeploymentFilterId, FlowRunFilterName
+from prefect.client.orchestration import get_client
+from prefect.client.schemas.objects import StateType
+
+COMMENTING_DEPLOYMENT_ID = "327f24eb-04db-4d30-992d-cce455b4b241" 
+COMMENTING_SCHEDULE_DELAY_MINUTES = 30
 
 # Mapping for user-friendly conviction input
 CONVICTION_MAPPING = {
@@ -90,9 +96,6 @@ def create_and_sign_vote_tx(
 def submit_transaction_sidecar(network: str, tx_hex: str) -> str:
     """
     Submits the signed transaction using the Substrate Sidecar.
-
-    Returns:
-        The transaction hash.
     """
     logger = get_run_logger()
 
@@ -130,8 +133,67 @@ def get_inference_result(network: str, proposal_id: int):
     """
     pass 
 
+
+@task
+async def check_if_commenting_already_scheduled(proposal_id: int, network: str) -> bool:
+    """
+    Checks the Prefect API to see if a scraper run for this proposal
+    already exists (in a non-failed state).
+    """
+    logger = get_run_logger()
+    logger.info(f"Checking for existing flow runs for comment-{network}-{proposal_id}...")
+
+    async with get_client() as client:
+        existing_runs = await client.read_flow_runs(
+            flow_run_filter=FlowRunFilter(
+                name=FlowRunFilterName(like_=f"comment-{network}-{proposal_id}"),
+                state=FlowRunFilterState(
+                    type=FlowRunFilterStateType(
+                        any_=[StateType.RUNNING, StateType.COMPLETED, StateType.PENDING, StateType.SCHEDULED]
+                    )
+                )
+            ),
+            deployment_filter=DeploymentFilter(
+                id=DeploymentFilterId(any_=[COMMENTING_DEPLOYMENT_ID])
+            )
+        )
+
+    if existing_runs:
+        logger.warning(
+            f"Found {len(existing_runs)} existing comment run(s) for proposal {proposal_id} on '{network}'. Skipping scheduling."
+        )
+        return True
+    
+    logger.info(
+        f"No existing comment runs found for proposal {proposal_id} on '{network}'. It's safe to schedule."
+    )
+    return False
+
+
+@task
+async def schedule_comment_task(proposal_id: int, network: str):
+    """Schedules the cybergov_scraper flow to run in the future."""
+    logger = get_run_logger()
+
+    delay = datetime.timedelta(minutes=COMMENTING_SCHEDULE_DELAY_MINUTES)
+    scheduled_time = datetime.datetime.now(datetime.timezone.utc) + delay
+    logger.info(
+        f"Scheduling MAGI comment for proposal {proposal_id} on '{network}' "
+        f"to run at {scheduled_time.isoformat()}"
+    )
+
+    async with get_client() as client:
+        await client.create_flow_run_from_deployment(
+            name=f"comment-{network}-{proposal_id}",
+            deployment_id=COMMENTING_DEPLOYMENT_ID,
+            parameters={"proposal_id": proposal_id, "network": network},
+            # state=Scheduled(scheduled_time=scheduled_time)
+        )
+
+
+
 @flow(name="Vote on Polkadot OpenGov", log_prints=True)
-def vote_on_opengov_proposal(
+async def vote_on_opengov_proposal(
     network: str,
     proposal_id: int,
     vote_aye: bool = True,

@@ -3,6 +3,9 @@ from prefect.blocks.system import Secret
 import httpx
 from datetime import datetime, timedelta, timezone
 import time 
+from prefect.server.schemas.filters import FlowRunFilter, FlowRunFilterState, FlowRunFilterStateType, DeploymentFilter, DeploymentFilterId, FlowRunFilterName
+from prefect.client.orchestration import get_client
+from prefect.client.schemas.objects import StateType
 
 # To ensure transparency, this has to run on GitHub actions
 # That way it is public, and the data + logic used to vote are transparent
@@ -17,6 +20,9 @@ NETWORK_MAPPING = {
 POLL_INTERVAL_SECONDS = 15
 FIND_RUN_TIMEOUT_SECONDS = 300 
 POLL_STATUS_TIMEOUT_SECONDS = 700
+
+VOTING_DEPLOYMENT_ID = "327f24eb-04db-4d30-992d-cce455b4b241" 
+VOTING_SCHEDULE_DELAY_MINUTES = 30
 
 @task
 def trigger_github_action_worker(proposal_id: int, network: str):
@@ -142,9 +148,65 @@ def poll_workflow_run_status(run_id: int):
     raise TimeoutError(f"Timed out waiting for workflow run {run_id} to complete.")
 
 
+@task
+async def check_if_voting_already_scheduled(proposal_id: int, network: str) -> bool:
+    """
+    Checks the Prefect API to see if a scraper run for this proposal
+    already exists (in a non-failed state).
+    """
+    logger = get_run_logger()
+    logger.info(f"Checking for existing flow runs for vote-{network}-{proposal_id}...")
+
+    async with get_client() as client:
+        existing_runs = await client.read_flow_runs(
+            flow_run_filter=FlowRunFilter(
+                name=FlowRunFilterName(like_=f"vote-{network}-{proposal_id}"),
+                state=FlowRunFilterState(
+                    type=FlowRunFilterStateType(
+                        any_=[StateType.RUNNING, StateType.COMPLETED, StateType.PENDING, StateType.SCHEDULED]
+                    )
+                )
+            ),
+            deployment_filter=DeploymentFilter(
+                id=DeploymentFilterId(any_=[VOTING_DEPLOYMENT_ID])
+            )
+        )
+
+    if existing_runs:
+        logger.warning(
+            f"Found {len(existing_runs)} existing vote run(s) for proposal {proposal_id} on '{network}'. Skipping scheduling."
+        )
+        return True
+    
+    logger.info(
+        f"No existing vote runs found for proposal {proposal_id} on '{network}'. It's safe to schedule."
+    )
+    return False
+
+
+@task
+async def schedule_voting_task(proposal_id: int, network: str):
+    """Schedules the cybergov_voter flow to run in the future."""
+    logger = get_run_logger()
+
+    delay = datetime.timedelta(minutes=VOTING_SCHEDULE_DELAY_MINUTES)
+    scheduled_time = datetime.datetime.now(datetime.timezone.utc) + delay
+    logger.info(
+        f"Scheduling MAGI vote for proposal {proposal_id} on '{network}' "
+        f"to run at {scheduled_time.isoformat()}"
+    )
+
+    async with get_client() as client:
+        await client.create_flow_run_from_deployment(
+            name=f"vote-{network}-{proposal_id}",
+            deployment_id=VOTING_DEPLOYMENT_ID,
+            parameters={"proposal_id": proposal_id, "network": network},
+            # state=Scheduled(scheduled_time=scheduled_time)
+        )
+
 
 @flow(name="GitHub Action Trigger and Monitor", log_prints=True)
-def github_action_trigger_and_monitor(proposal_id: int, network: str):
+async def github_action_trigger_and_monitor(proposal_id: int, network: str):
     """
     Triggers a GitHub Action, waits for it to complete, and checks its status.
     """
@@ -168,5 +230,17 @@ def github_action_trigger_and_monitor(proposal_id: int, network: str):
         wait_for=[find_workflow_run]
     )
     
-    if conclusion == 'success':
-        logger.info("✅ Magi Inference was successful! Scheduling vote.")
+    if conclusion != 'success':
+        raise Exception("Problemooooo")
+
+    is_already_scheduled = await check_if_voting_already_scheduled(
+            proposal_id=proposal_id, 
+            network=network
+        )
+    if not is_already_scheduled:
+        await schedule_voting_task(proposal_id=proposal_id, network=network)
+
+
+        logger.info("✅ Magi Inference was successful! Vote was successfully scheduled.")
+    else:
+        logger.info("Magi Inference was successful but vote is already scheduled, nothing to do.")
