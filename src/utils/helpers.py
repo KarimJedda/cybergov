@@ -44,3 +44,18 @@ def get_config_from_env() -> Dict[str, str]:
         
     logger.info("✓ Configuration loaded successfully from environment variables.")
     return config
+
+def hash_file(filepath, algorithm='sha256'):
+    """
+    Calculates the hash of a file.
+    Returns a string in the format 'algorithm:hex_digest'.
+    """
+    h = hashlib.new(algorithm)
+    with open(filepath, 'rb') as f:
+        while True:
+            chunk = f.read(8192)
+            if not chunk:
+                break
+            h.update(chunk)
+    return f"{algorithm}:{h.hexdigest()}"
+    
