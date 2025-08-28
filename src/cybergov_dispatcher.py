@@ -80,7 +80,6 @@ async def get_last_processed_id_from_s3(
         logger.error(f"Failed to list S3 directory 's3://{s3_path}': {e}")
         raise
 
-# TODO, get latest proposals from the chain, directly
 @task
 async def find_new_proposals(network: str, last_known_id: int) -> List[Dict]:
     """Fetching proposals from Subsquare with an index > last_known_id."""

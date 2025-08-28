@@ -1,10 +1,14 @@
 import httpx
 from prefect import flow, get_run_logger, task
-from prefect.blocks.system import Secret
 from substrateinterface import Keypair, SubstrateInterface
 from prefect.server.schemas.filters import FlowRunFilter, FlowRunFilterState, FlowRunFilterStateType, DeploymentFilter, DeploymentFilterId, FlowRunFilterName
 from prefect.client.orchestration import get_client
 from prefect.client.schemas.objects import StateType
+from prefect.blocks.system import String, Secret
+import s3fs
+import hashlib
+import datetime
+import json 
 
 COMMENTING_DEPLOYMENT_ID = "327f24eb-04db-4d30-992d-cce455b4b241" 
 COMMENTING_SCHEDULE_DELAY_MINUTES = 30
@@ -83,7 +87,7 @@ def create_and_sign_vote_tx(
 
             extrinsic = substrate.create_signed_extrinsic(call=batch_call, keypair=keypair)
             signed_tx_hex = str(extrinsic.data)
-            logger.info(f"Successfully created and signed transaction.")
+            logger.info("Successfully created and signed transaction.")
             
             return signed_tx_hex
 
@@ -122,7 +126,7 @@ def submit_transaction_sidecar(network: str, tx_hex: str) -> str:
 
 
 @task 
-def get_inference_result(network: str, proposal_id: int):
+def get_inference_result(network: str, proposal_id: int, s3_bucket: str, endpoint_url: str, access_key: str, secret_key: str):
     """
     Fetch MAGI vote result from S3 and execute vote
 
@@ -131,7 +135,45 @@ def get_inference_result(network: str, proposal_id: int):
         conviction: how convinced (if aye or nay)
         remark_text: the hash of vote.json the data that was used to vote 
     """
-    pass 
+    logger = get_run_logger()
+    file_path = f"{s3_bucket}/proposals/{network}/{proposal_id}/vote.json"
+    logger.info(f"Checking for vote results on {network} for proposal {proposal_id}")
+
+    try:
+        s3 = s3fs.S3FileSystem(
+            key=access_key,
+            secret=secret_key,
+            client_kwargs={
+                "endpoint_url": endpoint_url,
+            }
+        )
+
+        with s3.open(file_path, 'rb') as f:
+            vote_file_bytes = json.load(f)
+
+        logger.info(f"Successfully loaded vote data from {file_path}")
+        vote_data = json.loads(vote_file_bytes)
+
+        vote_result = vote_data.get("final_decision", "").upper()
+        if vote_result not in ["AYE", "NAY", "ABSTAIN"]:
+            raise ValueError(f"Invalid 'final_decision' in vote.json: {vote_result}")
+
+        # TODO tweak this a bit more 
+        is_unanimous = vote_data.get("is_unanimous", False)
+        conviction = 6 if is_unanimous else 1
+
+        remark_text = hashlib.sha256(vote_file_bytes).hexdigest()
+        logger.info(f"Calculated remark (SHA256 hash of vote.json): {remark_text}")
+
+        logger.info(f"Vote decision for proposal {proposal_id}: {vote_result} with conviction {conviction}.")
+        return vote_result, conviction, remark_text
+
+    except FileNotFoundError:
+        logger.info(f"Vote file not found at {file_path}. No inference result available yet.")
+        return None, None, None
+    except Exception as e:
+        logger.error(f"Failed to process vote file {file_path} due to an unexpected error: {e}")
+        raise
 
 
 @task
@@ -205,21 +247,44 @@ async def vote_on_opengov_proposal(
     """
     logger = get_run_logger()
 
-    signed_tx = create_and_sign_vote_tx(
+    s3_bucket_block = await String.load("scaleway-bucket-name")
+    endpoint_block = await String.load("scaleway-s3-endpoint-url")
+    access_key_block = await Secret.load("scaleway-access-key-id")
+    secret_key_block = await Secret.load("scaleway-secret-access-key")
+
+    s3_bucket = s3_bucket_block.value
+    endpoint_url = endpoint_block.value
+    access_key = access_key_block.get()
+    secret_key = secret_key_block.get()
+
+    vote_result, conviction, vote_file_hash = get_inference_result(
         network=network,
         proposal_id=proposal_id,
-        vote_aye=vote_aye,
-        conviction=conviction,
-        remark_text=remark_text,
+        s3_bucket=s3_bucket,
+        endpoint_url=endpoint_url,
+        access_key=access_key,
+        secret_key=secret_key
     )
 
+    if all(vote_result, conviction, vote_file_hash):
+        signed_tx = create_and_sign_vote_tx(
+            network=network,
+            proposal_id=proposal_id,
+            vote=vote_result,
+            conviction=conviction,
+            remark_text=vote_file_hash,
+        )
 
-    tx_hash = submit_transaction_sidecar(
-        network=network,
-        tx_hex=signed_tx, 
-    )
 
-    logger.info(f"✅ Successfully processed vote for proposal {proposal_id}. View transaction at: https://{network}.subscan.io/extrinsic/{tx_hash}")
+        tx_hash = submit_transaction_sidecar(
+            network=network,
+            tx_hex=signed_tx, 
+        )
+
+        logger.info(f"✅ Successfully processed vote for proposal {proposal_id}. View transaction at: https://{network}.subscan.io/extrinsic/{tx_hash}")
+    else:
+        logger.error(f"Cannot vote, the {network}/{proposal_id}/vote.json is invalid")
+        raise
 
 
 if __name__ == "__main__":
