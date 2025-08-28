@@ -6,23 +6,37 @@ from prefect import flow, task, get_run_logger
 from prefect.blocks.system import Secret, String
 from prefect.tasks import exponential_backoff
 import s3fs
-import datetime 
-from prefect.server.schemas.filters import FlowRunFilter, FlowRunFilterState, FlowRunFilterStateType, DeploymentFilter, DeploymentFilterId, FlowRunFilterName
+import datetime
+from prefect.server.schemas.filters import (
+    FlowRunFilter,
+    FlowRunFilterState,
+    FlowRunFilterStateType,
+    DeploymentFilter,
+    DeploymentFilterId,
+    FlowRunFilterName,
+)
 from prefect.client.orchestration import get_client
 from prefect.client.schemas.objects import StateType
-from utils.constants import NETWORK_MAP, INFERENCE_SCHEDULE_DELAY_MINUTES, INFERENCE_TRIGGER_DEPLOYMENT_ID
+from utils.constants import (
+    NETWORK_MAP,
+    INFERENCE_SCHEDULE_DELAY_MINUTES,
+    INFERENCE_TRIGGER_DEPLOYMENT_ID,
+)
+
 
 class ProposalFetchError(Exception):
     pass
 
+
 class ProposalParseError(Exception):
     pass
+
 
 @task(
     name="Fetch Proposal JSON from Subsquare API",
     retries=3,
     retry_delay_seconds=exponential_backoff(backoff_factor=10),
-    retry_jitter_factor=0.2
+    retry_jitter_factor=0.2,
 )
 def fetch_subsquare_proposal_data(url: str) -> Dict[str, Any]:
     """
@@ -31,14 +45,11 @@ def fetch_subsquare_proposal_data(url: str) -> Dict[str, Any]:
     logger = get_run_logger()
     user_agent_secret = Secret.load("cybergov-scraper-user-agent")
     user_agent = user_agent_secret.get()
-    
-    headers = {
-        "User-Agent": user_agent,
-        "Accept": "application/json"
-    }
-    
+
+    headers = {"User-Agent": user_agent, "Accept": "application/json"}
+
     logger.info(f"Fetching JSON data from API: {url}")
-    
+
     try:
         with httpx.Client() as client:
             response = client.get(url, headers=headers, timeout=30)
@@ -46,7 +57,7 @@ def fetch_subsquare_proposal_data(url: str) -> Dict[str, Any]:
             data = response.json()
             logger.info(f"Successfully fetched and parsed JSON from {url}")
             return data
-            
+
     except httpx.RequestError as e:
         logger.error(f"HTTP Request failed for URL {url}: {e}")
         raise ProposalFetchError(f"Failed to fetch data from {url}") from e
@@ -55,12 +66,15 @@ def fetch_subsquare_proposal_data(url: str) -> Dict[str, Any]:
         raise ProposalParseError(f"API response from {url} was not valid JSON.") from e
 
 
-@task(
-    name="Save JSON to S3",
-    retries=2,
-    retry_delay_seconds=5
-)
-def save_to_s3(data: Dict[str, Any], s3_bucket: str, endpoint_url: str, access_key: str, secret_key: str, full_s3_path: str):
+@task(name="Save JSON to S3", retries=2, retry_delay_seconds=5)
+def save_to_s3(
+    data: Dict[str, Any],
+    s3_bucket: str,
+    endpoint_url: str,
+    access_key: str,
+    secret_key: str,
+    full_s3_path: str,
+):
     """Saves the extracted JSON data to a specified S3 path."""
     logger = get_run_logger()
     logger.info(f"Saving JSON to {full_s3_path}...")
@@ -70,10 +84,10 @@ def save_to_s3(data: Dict[str, Any], s3_bucket: str, endpoint_url: str, access_k
             secret=secret_key,
             client_kwargs={
                 "endpoint_url": endpoint_url,
-            }
+            },
         )
 
-        with s3.open(full_s3_path, 'w') as f:
+        with s3.open(full_s3_path, "w") as f:
             json.dump(data, f, indent=2)
 
         logger.info(f"✅ Success! Proposal data saved to {full_s3_path}")
@@ -83,9 +97,7 @@ def save_to_s3(data: Dict[str, Any], s3_bucket: str, endpoint_url: str, access_k
 
 
 @flow(name="Fetch and Store Raw Subsquare Data")
-def fetch_and_store_raw_subsquare_data(
-    network: str, proposal_id: int
-) -> Optional[str]:
+def fetch_and_store_raw_subsquare_data(network: str, proposal_id: int) -> Optional[str]:
     """
     Subflow to handle fetching, parsing, and storing raw data for one proposal.
     Returns the S3 path of the stored data, or None if skipped.
@@ -103,17 +115,19 @@ def fetch_and_store_raw_subsquare_data(
 
     base_url = NETWORK_MAP[network]
     proposal_url = f"{base_url}/{proposal_id}"
-    s3_output_path = f"{s3_bucket}/proposals/{network}/{proposal_id}/raw_subsquare_data.json"
+    s3_output_path = (
+        f"{s3_bucket}/proposals/{network}/{proposal_id}/raw_subsquare_data.json"
+    )
 
     proposal_data = fetch_subsquare_proposal_data(proposal_url)
-    
+
     save_to_s3(
         data=proposal_data,
         s3_bucket=s3_bucket,
         endpoint_url=endpoint_url,
         access_key=access_key,
         secret_key=secret_key,
-        full_s3_path=s3_output_path
+        full_s3_path=s3_output_path,
     )
 
     return s3_output_path
@@ -126,7 +140,9 @@ async def check_if_already_scheduled(proposal_id: int, network: str) -> bool:
     already exists (in a non-failed state).
     """
     logger = get_run_logger()
-    logger.info(f"Checking for existing flow runs for inference-{network}-{proposal_id}...")
+    logger.info(
+        f"Checking for existing flow runs for inference-{network}-{proposal_id}..."
+    )
 
     async with get_client() as client:
         existing_runs = await client.read_flow_runs(
@@ -134,13 +150,18 @@ async def check_if_already_scheduled(proposal_id: int, network: str) -> bool:
                 name=FlowRunFilterName(like_=f"inference-{network}-{proposal_id}"),
                 state=FlowRunFilterState(
                     type=FlowRunFilterStateType(
-                        any_=[StateType.RUNNING, StateType.COMPLETED, StateType.PENDING, StateType.SCHEDULED]
+                        any_=[
+                            StateType.RUNNING,
+                            StateType.COMPLETED,
+                            StateType.PENDING,
+                            StateType.SCHEDULED,
+                        ]
                     )
-                )
+                ),
             ),
             deployment_filter=DeploymentFilter(
                 id=DeploymentFilterId(any_=[INFERENCE_TRIGGER_DEPLOYMENT_ID])
-            )
+            ),
         )
 
     if existing_runs:
@@ -148,7 +169,7 @@ async def check_if_already_scheduled(proposal_id: int, network: str) -> bool:
             f"Found {len(existing_runs)} existing inference run(s) for proposal {proposal_id} on '{network}'. Skipping scheduling."
         )
         return True
-    
+
     logger.info(
         f"No existing inference runs found for proposal {proposal_id} on '{network}'. It's safe to schedule."
     )
@@ -176,7 +197,6 @@ async def schedule_inference_task(proposal_id: int, network: str):
         )
 
 
-
 @flow(name="Fetch Proposal Data")
 async def fetch_proposal_data(network: str, proposal_id: int):
     """
@@ -185,7 +205,9 @@ async def fetch_proposal_data(network: str, proposal_id: int):
     logger = get_run_logger()
 
     if network not in NETWORK_MAP:
-        logger.error(f"Invalid network '{network}'. Must be one of {list(NETWORK_MAP.keys())}")
+        logger.error(
+            f"Invalid network '{network}'. Must be one of {list(NETWORK_MAP.keys())}"
+        )
         return
 
     try:
@@ -200,12 +222,13 @@ async def fetch_proposal_data(network: str, proposal_id: int):
 
         logger.info("Placeholder for LLM prompt generation.")
 
-        logger.info("All good! Now scheduling the inference in 30 minutes. If inference successful, schedule vote & comment too!.")
+        logger.info(
+            "All good! Now scheduling the inference in 30 minutes. If inference successful, schedule vote & comment too!."
+        )
 
         is_already_scheduled = await check_if_already_scheduled(
-                proposal_id=proposal_id, 
-                network=network
-            )
+            proposal_id=proposal_id, network=network
+        )
         if not is_already_scheduled:
             await schedule_inference_task(proposal_id=proposal_id, network=network)
 
@@ -213,5 +236,7 @@ async def fetch_proposal_data(network: str, proposal_id: int):
         logger.error(f"Pipeline failed for {network} ref {proposal_id}. Reason: {e}")
         raise
     except Exception as e:
-        logger.error(f"An unexpected error occurred in the pipeline for {network} ref {proposal_id}: {e}")
+        logger.error(
+            f"An unexpected error occurred in the pipeline for {network} ref {proposal_id}: {e}"
+        )
         raise

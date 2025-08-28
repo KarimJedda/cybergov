@@ -1,15 +1,27 @@
 import httpx
 from prefect import flow, get_run_logger, task
 from substrateinterface import Keypair, SubstrateInterface
-from prefect.server.schemas.filters import FlowRunFilter, FlowRunFilterState, FlowRunFilterStateType, DeploymentFilter, DeploymentFilterId, FlowRunFilterName
+from prefect.server.schemas.filters import (
+    FlowRunFilter,
+    FlowRunFilterState,
+    FlowRunFilterStateType,
+    DeploymentFilter,
+    DeploymentFilterId,
+    FlowRunFilterName,
+)
 from prefect.client.orchestration import get_client
 from prefect.client.schemas.objects import StateType
 from prefect.blocks.system import String, Secret
 import s3fs
 import hashlib
 import datetime
-import json 
-from utils.constants import COMMENTING_DEPLOYMENT_ID, COMMENTING_SCHEDULE_DELAY_MINUTES, CONVICTION_MAPPING
+import json
+from utils.constants import (
+    COMMENTING_DEPLOYMENT_ID,
+    COMMENTING_SCHEDULE_DELAY_MINUTES,
+    CONVICTION_MAPPING,
+)
+
 
 @task
 def create_and_sign_vote_tx(
@@ -26,14 +38,14 @@ def create_and_sign_vote_tx(
     logger = get_run_logger()
 
     if conviction not in CONVICTION_MAPPING:
-        raise ValueError(f"Invalid conviction value '{conviction}'. Must be one of {list(CONVICTION_MAPPING.keys())}")
+        raise ValueError(
+            f"Invalid conviction value '{conviction}'. Must be one of {list(CONVICTION_MAPPING.keys())}"
+        )
 
     network_rpc_block = Secret.load(f"{network}-rpc-url")
     network_rpc_url = network_rpc_block.get()
 
-    logger.info(
-        f"Connecting to Sidecar node for {network} to prepare vote..."
-    )
+    logger.info(f"Connecting to Sidecar node for {network} to prepare vote...")
 
     try:
         with SubstrateInterface(url=network_rpc_url) as substrate:
@@ -47,9 +59,12 @@ def create_and_sign_vote_tx(
 
             vote = {
                 "Standard": {
-                    "vote": {"aye": vote_aye, "conviction": CONVICTION_MAPPING[conviction]},
-                    ## TODO: how much to vote with? 
-                    "balance": 3500 * 10**10
+                    "vote": {
+                        "aye": vote_aye,
+                        "conviction": CONVICTION_MAPPING[conviction],
+                    },
+                    ## TODO: how much to vote with?
+                    "balance": 3500 * 10**10,
                 }
             }
             vote_call = substrate.compose_call(
@@ -63,18 +78,20 @@ def create_and_sign_vote_tx(
                 call_function="remark_with_event",
                 call_params={"remark": remark_text.encode()},
             )
-            
+
             logger.info("Composing utility.batch call with vote and remark.")
             batch_call = substrate.compose_call(
                 call_module="Utility",
                 call_function="batch_all",
-                call_params={"calls": [vote_call, remark_call]}
+                call_params={"calls": [vote_call, remark_call]},
             )
 
-            extrinsic = substrate.create_signed_extrinsic(call=batch_call, keypair=keypair)
+            extrinsic = substrate.create_signed_extrinsic(
+                call=batch_call, keypair=keypair
+            )
             signed_tx_hex = str(extrinsic.data)
             logger.info("Successfully created and signed transaction.")
-            
+
             return signed_tx_hex
 
     except Exception as e:
@@ -98,28 +115,39 @@ def submit_transaction_sidecar(network: str, tx_hex: str) -> str:
     logger.info(f"Submitting transaction via Sidecar at {url}...")
     with httpx.Client(timeout=30) as client:
         response = client.post(url, json=payload)
-    
+
     if response.status_code != 200:
-        logger.error(f"Submission failed with status {response.status_code}: {response.text}")
+        logger.error(
+            f"Submission failed with status {response.status_code}: {response.text}"
+        )
         response.raise_for_status()
 
     tx_hash = response.json().get("hash", None)
     if not tx_hash:
-        raise ValueError(f"Could not find 'hash' in submission response: {response.json()}")
-        
+        raise ValueError(
+            f"Could not find 'hash' in submission response: {response.json()}"
+        )
+
     logger.info(f"Transaction submitted successfully! Hash: {tx_hash}")
     return tx_hash
 
 
-@task 
-def get_inference_result(network: str, proposal_id: int, s3_bucket: str, endpoint_url: str, access_key: str, secret_key: str):
+@task
+def get_inference_result(
+    network: str,
+    proposal_id: int,
+    s3_bucket: str,
+    endpoint_url: str,
+    access_key: str,
+    secret_key: str,
+):
     """
     Fetch MAGI vote result from S3 and execute vote
 
-    Returns: 
-        vote_result: aye, nay or abstain 
+    Returns:
+        vote_result: aye, nay or abstain
         conviction: how convinced (if aye or nay)
-        remark_text: the hash of vote.json the data that was used to vote 
+        remark_text: the hash of vote.json the data that was used to vote
     """
     logger = get_run_logger()
     file_path = f"{s3_bucket}/proposals/{network}/{proposal_id}/vote.json"
@@ -131,10 +159,10 @@ def get_inference_result(network: str, proposal_id: int, s3_bucket: str, endpoin
             secret=secret_key,
             client_kwargs={
                 "endpoint_url": endpoint_url,
-            }
+            },
         )
 
-        with s3.open(file_path, 'rb') as f:
+        with s3.open(file_path, "rb") as f:
             vote_file_bytes = json.load(f)
 
         logger.info(f"Successfully loaded vote data from {file_path}")
@@ -144,21 +172,27 @@ def get_inference_result(network: str, proposal_id: int, s3_bucket: str, endpoin
         if vote_result not in ["AYE", "NAY", "ABSTAIN"]:
             raise ValueError(f"Invalid 'final_decision' in vote.json: {vote_result}")
 
-        # TODO tweak this a bit more 
+        # TODO tweak this a bit more
         is_unanimous = vote_data.get("is_unanimous", False)
         conviction = 6 if is_unanimous else 1
 
         remark_text = hashlib.sha256(vote_file_bytes).hexdigest()
         logger.info(f"Calculated remark (SHA256 hash of vote.json): {remark_text}")
 
-        logger.info(f"Vote decision for proposal {proposal_id}: {vote_result} with conviction {conviction}.")
+        logger.info(
+            f"Vote decision for proposal {proposal_id}: {vote_result} with conviction {conviction}."
+        )
         return vote_result, conviction, remark_text
 
     except FileNotFoundError:
-        logger.info(f"Vote file not found at {file_path}. No inference result available yet.")
+        logger.info(
+            f"Vote file not found at {file_path}. No inference result available yet."
+        )
         return None, None, None
     except Exception as e:
-        logger.error(f"Failed to process vote file {file_path} due to an unexpected error: {e}")
+        logger.error(
+            f"Failed to process vote file {file_path} due to an unexpected error: {e}"
+        )
         raise
 
 
@@ -169,7 +203,9 @@ async def check_if_commenting_already_scheduled(proposal_id: int, network: str) 
     already exists (in a non-failed state).
     """
     logger = get_run_logger()
-    logger.info(f"Checking for existing flow runs for comment-{network}-{proposal_id}...")
+    logger.info(
+        f"Checking for existing flow runs for comment-{network}-{proposal_id}..."
+    )
 
     async with get_client() as client:
         existing_runs = await client.read_flow_runs(
@@ -177,13 +213,18 @@ async def check_if_commenting_already_scheduled(proposal_id: int, network: str) 
                 name=FlowRunFilterName(like_=f"comment-{network}-{proposal_id}"),
                 state=FlowRunFilterState(
                     type=FlowRunFilterStateType(
-                        any_=[StateType.RUNNING, StateType.COMPLETED, StateType.PENDING, StateType.SCHEDULED]
+                        any_=[
+                            StateType.RUNNING,
+                            StateType.COMPLETED,
+                            StateType.PENDING,
+                            StateType.SCHEDULED,
+                        ]
                     )
-                )
+                ),
             ),
             deployment_filter=DeploymentFilter(
                 id=DeploymentFilterId(any_=[COMMENTING_DEPLOYMENT_ID])
-            )
+            ),
         )
 
     if existing_runs:
@@ -191,7 +232,7 @@ async def check_if_commenting_already_scheduled(proposal_id: int, network: str) 
             f"Found {len(existing_runs)} existing comment run(s) for proposal {proposal_id} on '{network}'. Skipping scheduling."
         )
         return True
-    
+
     logger.info(
         f"No existing comment runs found for proposal {proposal_id} on '{network}'. It's safe to schedule."
     )
@@ -217,7 +258,6 @@ async def schedule_comment_task(proposal_id: int, network: str):
             parameters={"proposal_id": proposal_id, "network": network},
             # state=Scheduled(scheduled_time=scheduled_time)
         )
-
 
 
 @flow(name="Vote on Polkadot OpenGov", log_prints=True)
@@ -249,7 +289,7 @@ async def vote_on_opengov_proposal(
         s3_bucket=s3_bucket,
         endpoint_url=endpoint_url,
         access_key=access_key,
-        secret_key=secret_key
+        secret_key=secret_key,
     )
 
     if all(vote_result, conviction, vote_file_hash):
@@ -261,13 +301,14 @@ async def vote_on_opengov_proposal(
             remark_text=vote_file_hash,
         )
 
-
         tx_hash = submit_transaction_sidecar(
             network=network,
-            tx_hex=signed_tx, 
+            tx_hex=signed_tx,
         )
 
-        logger.info(f"✅ Successfully processed vote for proposal {proposal_id}. View transaction at: https://{network}.subscan.io/extrinsic/{tx_hash}")
+        logger.info(
+            f"✅ Successfully processed vote for proposal {proposal_id}. View transaction at: https://{network}.subscan.io/extrinsic/{tx_hash}"
+        )
     else:
         logger.error(f"Cannot vote, the {network}/{proposal_id}/vote.json is invalid")
         raise
@@ -277,8 +318,8 @@ if __name__ == "__main__":
     # Example of how to run the flow
     vote_on_opengov_proposal(
         network="paseo",
-        proposal_id=100, 
+        proposal_id=100,
         vote_aye=True,
-        conviction=6, 
-        remark_text="max bidding"
+        conviction=6,
+        remark_text="max bidding",
     )

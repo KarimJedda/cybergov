@@ -1,18 +1,26 @@
 import httpx
 from prefect import flow, get_run_logger, task
 from substrateinterface import Keypair
-import json 
-import time 
+import json
+import time
 from prefect.blocks.system import String, Secret
 import s3fs
 
-@task 
-def get_rationale_for_subsquare_comment(network: str, proposal_id: int, s3_bucket: str, endpoint_url: str, access_key: str, secret_key: str):
+
+@task
+def get_rationale_for_subsquare_comment(
+    network: str,
+    proposal_id: int,
+    s3_bucket: str,
+    endpoint_url: str,
+    access_key: str,
+    secret_key: str,
+):
     """
     Fetch MAGI vote result from S3 and execute vote
 
-    Returns: 
-        vote_result: aye, nay or abstain 
+    Returns:
+        vote_result: aye, nay or abstain
         comment: The summary / rationale that will be posted
     """
     logger = get_run_logger()
@@ -25,10 +33,10 @@ def get_rationale_for_subsquare_comment(network: str, proposal_id: int, s3_bucke
             secret=secret_key,
             client_kwargs={
                 "endpoint_url": endpoint_url,
-            }
+            },
         )
 
-        with s3.open(file_path, 'rb') as f:
+        with s3.open(file_path, "rb") as f:
             vote_data = json.load(f)
 
         logger.info(f"Successfully loaded vote data from {file_path}")
@@ -39,20 +47,20 @@ def get_rationale_for_subsquare_comment(network: str, proposal_id: int, s3_bucke
         return comment
 
     except FileNotFoundError:
-        logger.info(f"Vote file not found at {file_path}. No inference result available yet.")
+        logger.info(
+            f"Vote file not found at {file_path}. No inference result available yet."
+        )
         return None, None, None
     except Exception as e:
-        logger.error(f"Failed to process vote file {file_path} due to an unexpected error: {e}")
+        logger.error(
+            f"Failed to process vote file {file_path} due to an unexpected error: {e}"
+        )
         raise
-
 
 
 @task
 def post_comment_to_subsquare(
-    network: str,
-    proposal_id: int,
-    proposed_height: int, 
-    comment: str
+    network: str, proposal_id: int, proposed_height: int, comment: str
 ):
     """
     Posts a comment to a Subsquare referendum.
@@ -60,7 +68,9 @@ def post_comment_to_subsquare(
 
     logger = get_run_logger()
 
-    api_url = f"https://{network}-api.subsquare.io/sima/referenda/{proposal_id}/comments"
+    api_url = (
+        f"https://{network}-api.subsquare.io/sima/referenda/{proposal_id}/comments"
+    )
 
     entity_payload = {
         "action": "comment",
@@ -72,10 +82,10 @@ def post_comment_to_subsquare(
         },
         "content": comment,
         "content_format": "subsquare_md",
-        "timestamp": int(time.time() * 1000)
+        "timestamp": int(time.time() * 1000),
     }
 
-    message_to_sign = json.dumps(entity_payload, separators=(',', ':'))
+    message_to_sign = json.dumps(entity_payload, separators=(",", ":"))
 
     cybergov_mnemonic = Secret.load(f"{network}-cybergov-mnemonic").get()
     keypair = Keypair.create_from_mnemonic(cybergov_mnemonic)
@@ -87,16 +97,18 @@ def post_comment_to_subsquare(
     final_request_body = {
         "entity": entity_payload,
         "address": keypair.ss58_address,
-        "signature": '0x' + signature.hex(),
+        "signature": "0x" + signature.hex(),
         "signerWallet": "py-polkadot-sdk",
     }
-    
+
     headers = {
         "Content-Type": "application/json",
         "User-Agent": user_agent,
     }
 
-    logger.info(f"Sending comment request to Subsquare: {json.dumps(final_request_body)}")
+    logger.info(
+        f"Sending comment request to Subsquare: {json.dumps(final_request_body)}"
+    )
 
     try:
         response = httpx.post(api_url, headers=headers, json=final_request_body)
@@ -131,7 +143,9 @@ def post_magi_comment_to_subsquare(
     access_key = access_key_block.get()
     secret_key = secret_key_block.get()
 
-    logger.info(f"Posting comment to Subsquare on network {network} for proposal {proposal_id}")
+    logger.info(
+        f"Posting comment to Subsquare on network {network} for proposal {proposal_id}"
+    )
 
     comment = get_rationale_for_subsquare_comment(
         network=network,
@@ -139,24 +153,24 @@ def post_magi_comment_to_subsquare(
         s3_bucket=s3_bucket,
         endpoint_url=endpoint_url,
         access_key=access_key,
-        secret_key=secret_key
+        secret_key=secret_key,
     )
 
-    if comment: 
+    if comment:
         post_comment_to_subsquare(
             network=network,
             proposal_id=proposal_id,
-            proposed_height=7902563,
-            comment=comment
+            proposed_height=7902563, ## TODO need to get this from the raw_subsquare info
+            comment=comment,
         )
         logger.info(f"✅ Successfully posted comment for {proposal_id} on {network}")
     else:
         logger.error("Cannot post comment, no content provided.")
-        raise 
+        raise
 
 
 if __name__ == "__main__":
     post_magi_comment_to_subsquare(
         network="paseo",
-        proposal_id=100, 
+        proposal_id=100,
     )
