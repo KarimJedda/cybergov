@@ -24,7 +24,7 @@ def sign_manifest(manifest_path: Path) -> Path:
     return signature_path
 
 
-def generate_summary_rationale(votes_breakdown, logger) -> str:
+def generate_summary_rationale(votes_breakdown) -> str:
     """
     Placeholder for the LLM call to generate a summary rationale.
     """
@@ -92,7 +92,7 @@ def perform_preflight_checks(s3, proposal_s3_path, local_workspace):
     return manifest_inputs, local_content_path, magi_models
 
 
-def run_magi_evaluations(magi_models, local_workspace, logger):
+def run_magi_evaluations(magi_models, local_workspace):
     """
     Creates dummy LLM analysis files. In a real system, this would
     involve actual LLM API calls using the content.md and system prompts.
@@ -127,7 +127,7 @@ def run_magi_evaluations(magi_models, local_workspace, logger):
     return output_files
 
 
-def consolidate_vote(analysis_files, local_workspace, logger):
+def consolidate_vote(analysis_files, local_workspace):
     """
     Reads individual LLM analyses and creates a final vote.json file.
     """
@@ -163,7 +163,7 @@ def consolidate_vote(analysis_files, local_workspace, logger):
         "is_conclusive": is_conclusive,
         "final_decision": final_decision,
         "is_unanimous": is_unanimous,
-        "summary_rationale": generate_summary_rationale(votes_breakdown, logger),
+        "summary_rationale": generate_summary_rationale(votes_breakdown),
         "votes_breakdown": votes_breakdown
     }
     
@@ -202,16 +202,16 @@ def main():
 
         # Step 1: Check inputs, download them, and record their hashes for the manifest
         manifest_inputs, _, magi_models = perform_preflight_checks(
-            s3, proposal_s3_path, local_workspace, logger
+            s3, proposal_s3_path, local_workspace
         )
         last_good_step = "pre-flight_checks"
 
         # Step 2: Run evaluations (dummy version)
-        local_analysis_files = run_magi_evaluations(magi_models, local_workspace, logger)
+        local_analysis_files = run_magi_evaluations(magi_models, local_workspace)
         last_good_step = "magi_evaluation"
 
         # Step 3: Consolidate the vote
-        local_vote_file = consolidate_vote(local_analysis_files, local_workspace, logger)
+        local_vote_file = consolidate_vote(local_analysis_files, local_workspace)
         last_good_step = "vote_consolidation"
 
         # Step 4: Generate manifest, sign it, and upload all outputs
@@ -260,7 +260,7 @@ def main():
             json.dump(manifest, f, indent=2)
         
         # Sign the manifest (placeholder)
-        signature_path = sign_manifest(manifest_path, logger)
+        signature_path = sign_manifest(manifest_path)
         
         # Upload manifest and signature with stable names
         s3.upload(str(manifest_path), f"{proposal_s3_path}/manifest-llm.json")
