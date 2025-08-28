@@ -34,9 +34,6 @@ s3://your-bucket/proposals/{network}/{proposal_id}/
 
 network will be one of polkadot, kusama, paseo. These files will be publicly accessible but served through a CDN. 
 
-The metadata.json serves us as a barebones state machine. 
-
-
 
 ## llm_analyses/magi.json
 

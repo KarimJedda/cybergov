@@ -9,21 +9,7 @@ import s3fs
 import hashlib
 import datetime
 import json 
-
-COMMENTING_DEPLOYMENT_ID = "327f24eb-04db-4d30-992d-cce455b4b241" 
-COMMENTING_SCHEDULE_DELAY_MINUTES = 30
-
-# Mapping for user-friendly conviction input
-CONVICTION_MAPPING = {
-    0: "None",
-    1: "Locked1x",
-    2: "Locked2x",
-    3: "Locked3x",
-    4: "Locked4x",
-    5: "Locked5x",
-    6: "Locked6x",
-}
-
+from utils.constants import COMMENTING_DEPLOYMENT_ID, COMMENTING_SCHEDULE_DELAY_MINUTES, CONVICTION_MAPPING
 
 @task
 def create_and_sign_vote_tx(

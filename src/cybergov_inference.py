@@ -9,20 +9,7 @@ from prefect.client.schemas.objects import StateType
 
 # To ensure transparency, this has to run on GitHub actions
 # That way it is public, and the data + logic used to vote are transparent
-GITHUB_REPO = "KarimJedda/cybergov"
-
-NETWORK_MAPPING = {
-    'polkadot': 'run_polkadot.yml',
-    'kusama': 'run_kusama.yml',
-    'paseo': 'run_paseo.yml'
-}
-
-POLL_INTERVAL_SECONDS = 15
-FIND_RUN_TIMEOUT_SECONDS = 300 
-POLL_STATUS_TIMEOUT_SECONDS = 700
-
-VOTING_DEPLOYMENT_ID = "327f24eb-04db-4d30-992d-cce455b4b241" 
-VOTING_SCHEDULE_DELAY_MINUTES = 30
+from utils.constants import VOTING_DEPLOYMENT_ID, VOTING_SCHEDULE_DELAY_MINUTES, GH_POLL_INTERVAL_SECONDS, GH_POLL_STATUS_TIMEOUT_SECONDS, GITHUB_REPO, INFERENCE_FIND_RUN_TIMEOUT_SECONDS, GH_WORKFLOW_NETWORK_MAPPING
 
 @task
 def trigger_github_action_worker(proposal_id: int, network: str):
@@ -40,7 +27,7 @@ def trigger_github_action_worker(proposal_id: int, network: str):
         raise
 
     # TODO has to fail if provided bad values
-    workflow_file_name = NETWORK_MAPPING[network]
+    workflow_file_name = GH_WORKFLOW_NETWORK_MAPPING[network]
     
     url = f"https://api.github.com/repos/{GITHUB_REPO}/actions/workflows/{workflow_file_name}/dispatches"
     
@@ -86,7 +73,7 @@ def find_workflow_run(network: str, proposal_id: int, workflow_file_name: str, t
     params = {"event": "workflow_dispatch", "branch": "main", "per_page": 5}
 
     start_time = datetime.now(timezone.utc)
-    while datetime.now(timezone.utc) - start_time < timedelta(seconds=FIND_RUN_TIMEOUT_SECONDS):
+    while datetime.now(timezone.utc) - start_time < timedelta(seconds=INFERENCE_FIND_RUN_TIMEOUT_SECONDS):
         with httpx.Client() as client:
             response = client.get(url, headers=headers, params=params)
             response.raise_for_status()
@@ -101,7 +88,7 @@ def find_workflow_run(network: str, proposal_id: int, workflow_file_name: str, t
                 return run['id']
 
         logger.info("No matching run found yet. Waiting...")
-        time.sleep(POLL_INTERVAL_SECONDS)
+        time.sleep(GH_POLL_INTERVAL_SECONDS)
 
     raise TimeoutError("Timed out waiting to find the triggered workflow run.")
 
@@ -122,7 +109,7 @@ def poll_workflow_run_status(run_id: int):
     }
     
     start_time = datetime.now(timezone.utc)
-    while datetime.now(timezone.utc) - start_time < timedelta(seconds=POLL_STATUS_TIMEOUT_SECONDS):
+    while datetime.now(timezone.utc) - start_time < timedelta(seconds=GH_POLL_STATUS_TIMEOUT_SECONDS):
         with httpx.Client() as client:
             response = client.get(url, headers=headers)
             response.raise_for_status()
@@ -143,7 +130,7 @@ def poll_workflow_run_status(run_id: int):
                 logger.error(error_message)
                 raise
 
-        time.sleep(POLL_INTERVAL_SECONDS)
+        time.sleep(GH_POLL_INTERVAL_SECONDS)
 
     raise TimeoutError(f"Timed out waiting for workflow run {run_id} to complete.")
 

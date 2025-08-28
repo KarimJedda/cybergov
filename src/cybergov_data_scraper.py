@@ -10,16 +10,7 @@ import datetime
 from prefect.server.schemas.filters import FlowRunFilter, FlowRunFilterState, FlowRunFilterStateType, DeploymentFilter, DeploymentFilterId, FlowRunFilterName
 from prefect.client.orchestration import get_client
 from prefect.client.schemas.objects import StateType
-
-INFERENCE_TRIGGER_DEPLOYMENT_ID = "327f24eb-04db-4d30-992d-cce455b4b241" 
-
-INFERENCE_SCHEDULE_DELAY_MINUTES = 30
-
-NETWORK_MAP = {
-    "polkadot": "https://polkadot-api.subsquare.io/gov2/referendums",
-    "kusama": "https://kusama-api.subsquare.io/gov2/referendums",
-    "paseo": "https://paseo-api.subsquare.io/gov2/referendums"
-}
+from utils.constants import NETWORK_MAP, INFERENCE_SCHEDULE_DELAY_MINUTES, INFERENCE_TRIGGER_DEPLOYMENT_ID
 
 class ProposalFetchError(Exception):
     pass

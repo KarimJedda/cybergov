@@ -1,36 +1,16 @@
-import asyncio
 import datetime
-import random
-import re
 from typing import List, Optional, Dict
 from prefect import flow, task, get_run_logger
 import s3fs
 import httpx
 import os 
-
-# --- Prefect Blocks Integration (Generic) ---
 from prefect.blocks.system import String, Secret
 from prefect.server.schemas.filters import FlowRunFilter, FlowRunFilterState, FlowRunFilterStateType, DeploymentFilter, DeploymentFilterId, FlowRunFilterName
 from prefect.client.orchestration import get_client
 from prefect.states import Scheduled
-from prefect.client.schemas.objects import State, StateType
+from prefect.client.schemas.objects import StateType
+from utils.constants import SCRAPING_SCHEDULE_DELAY_DAYS, DATA_SCRAPER_DEPLOYMENT_ID, CYBERGOV_PARAMS
 
-# --- Configuration Constants (Scraper-specific) ---
-DATA_SCRAPER_DEPLOYMENT_ID = "00b42f26-0ccf-4d18-b127-a273b2006838" # TODO make this a var or something
-
-## We wait a little bit before scraping, so people get time to add their links etc. 
-SCHEDULE_DELAY_DAYS = 2
-
-## Cybergov V0 parameters we can tune later
-parameters = {
-    ## skip proposals before this id, regardless of what's going on
-    'min_proposal_id': {
-        'polkadot': 1723,
-        'kusama': 578,
-        'paseo': 99
-    },
-    'max_proposal_id': {} # for later
-}
 
 @task
 async def get_last_processed_id_from_s3(
@@ -125,7 +105,7 @@ async def find_new_proposals(network: str, last_known_id: int) -> List[Dict]:
         logger.error(f"Response is not valid JSON: {e} - Body: {response.text}")
         raise
 
-    min_threshold = parameters.get("min_proposal_id", {}).get(network, 0)
+    min_threshold = CYBERGOV_PARAMS.get("min_proposal_id", {}).get(network, 0)
     start_from_id = max(last_known_id, min_threshold)
 
     if last_proposal_id < start_from_id:
@@ -176,7 +156,7 @@ async def schedule_scraping_task(proposal_id: int, network: str):
     """Schedules the cybergov_scraper flow to run in the future."""
     logger = get_run_logger()
 
-    delay = datetime.timedelta(days=SCHEDULE_DELAY_DAYS)
+    delay = datetime.timedelta(days=SCRAPING_SCHEDULE_DELAY_DAYS)
     scheduled_time = datetime.datetime.now(datetime.timezone.utc) + delay
     logger.info(
         f"Scheduling scraper for proposal {proposal_id} on '{network}' "
