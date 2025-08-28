@@ -2,6 +2,7 @@ import logging
 import os 
 import sys 
 from typing import Dict, Optional, Tuple
+import hashlib
 
 def setup_logging():
     logging.basicConfig(

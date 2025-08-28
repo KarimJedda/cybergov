@@ -176,6 +176,7 @@ def get_inference_result(
         is_unanimous = vote_data.get("is_unanimous", False)
         conviction = 6 if is_unanimous else 1
 
+        ## Hmm maybe we should hash the manifest-llm.json.sig instead! 
         remark_text = hashlib.sha256(vote_file_bytes).hexdigest()
         logger.info(f"Calculated remark (SHA256 hash of vote.json): {remark_text}")
 

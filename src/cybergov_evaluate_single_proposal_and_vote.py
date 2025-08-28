@@ -221,13 +221,12 @@ def main():
         
         for local_file in files_to_process:
             file_hash = hash_file(local_file)
-            hash_suffix = file_hash.split(':')[-1][:12] # Use a short hash for filename
             
             # Determine S3 path
             if local_file.parent.name == "llm_analyses":
-                s3_filename = f"llm_analyses/{local_file.stem}-{hash_suffix}.json"
+                s3_filename = f"llm_analyses/{local_file.stem}.json"
             else:
-                s3_filename = f"{local_file.stem}-{hash_suffix}.json"
+                s3_filename = f"{local_file.stem}.json"
             
             final_s3_path = f"{proposal_s3_path}/{s3_filename}"
             
