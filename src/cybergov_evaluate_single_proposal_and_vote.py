@@ -50,7 +50,7 @@ def perform_preflight_checks(s3, proposal_s3_path, local_workspace):
 
     with s3.open(raw_subsquare_s3_path, 'r') as f:
         raw_data = json.load(f)
-    required_attrs = ['proposal_index', 'title', 'content', 'author', 'timeline']
+    required_attrs = ['referendumIndex', 'title', 'content', 'proposer']
     if not all(attr in raw_data for attr in required_attrs):
         raise ValueError(f"raw_subsquare.json is missing one of the required attributes: {required_attrs}")
     
