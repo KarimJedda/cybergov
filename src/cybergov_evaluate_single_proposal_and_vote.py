@@ -44,7 +44,7 @@ def perform_preflight_checks(s3, proposal_s3_path, local_workspace):
     manifest_inputs = []
 
     # 1. Check for raw_subsquare.json in S3
-    raw_subsquare_s3_path = f"{proposal_s3_path}/raw_subsquare.json"
+    raw_subsquare_s3_path = f"{proposal_s3_path}/raw_subsquare_data.json"
     if not s3.exists(raw_subsquare_s3_path):
         raise FileNotFoundError(f"Required file not found in S3: {raw_subsquare_s3_path}")
 

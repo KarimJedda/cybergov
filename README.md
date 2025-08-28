@@ -21,7 +21,7 @@ In order to ensure reproducibility, everything should ideally be driven of immut
 
 ```
 s3://your-bucket/proposals/{network}/{proposal_id}/
-├── raw_subsquare.json		  # Raw data extracted from Subsquare
+├── raw_subsquare_data.json		  # Raw data extracted from Subsquare
 ├── content.md 				      # Cleaned, extracted content for the LLMs
 ├── llm_analyses/           # NEW: Directory for individual LLM outputs
 │   ├── balthazar.json
