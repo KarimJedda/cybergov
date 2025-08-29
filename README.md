@@ -28,11 +28,12 @@ s3://your-bucket/proposals/{network}/{proposal_id}/
 │   ├── caspar.json
 │   └── melchior.json
 ├── manifest.json           # hashes of inputs / outputs for provenance
-├── manifest.json.sig       # signature of the manifest with the cybergov key
 └── vote.json 		          # The final vote result
 ```
 
 network will be one of polkadot, kusama, paseo. These files will be publicly accessible but served through a CDN. 
+
+The vote will be bundled in a utility batch call, with the SHA256(manifest.json) as a justification! 
 
 
 ## llm_analyses/magi.json

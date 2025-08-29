@@ -5,23 +5,20 @@ build: null
 push: null
 
 pull:
-# for Github, needs fiddling
-# - prefect.deployments.steps.set_working_directory:
-#    directory: '/home/runner/work/cybergov/cybergov'
  - prefect.deployments.steps.set_working_directory:
     directory: '/home/spongebob/cybergov'
 
 deployments:
 - name: 'Cybergov MAGI Dispatcher'
   description: 'Tracks new proposals and schedules their scraping.'
-  flow_name: 'Governance Scheduler'
+  flow_name: 'MAGI Scheduler'
   entrypoint: src/cybergov_dispatcher.py:cybergov_dispatcher_flow
   work_pool:
     name: 'cybergov-dispatcher-pool'
 
 - name: 'Cybergov MAGI Proposal Scraper'
   description: 'Flow that is responsible to fetch data for the proposal'
-  flow_name: 'Proposal Scraper'
+  flow_name: 'MAGI Scraper'
   entrypoint: src/cybergov_data_scraper.py:fetch_proposal_data
   work_pool:
     name: 'cybergov-dispatcher-pool'
@@ -29,7 +26,21 @@ deployments:
 # This is what gets dispatched, it triggers a GitHub Action run
 - name: 'Cybergov MAGI Inference Trigger'
   description: 'Triggers GitHub Actions to run scraping & voting. All processing logic is on GitHub Actions.'
-  flow_name: 'Governance Workflow Trigger'
+  flow_name: 'MAGI GH Trigger'
   entrypoint: src/cybergov_inference.py:github_action_trigger_and_monitor
+  work_pool:
+    name: 'cybergov-dispatcher-pool'
+
+- name: 'Cybergov MAGI Voter'
+  description: 'Submits vote on-chain'
+  flow_name: 'MAGI Vote'
+  entrypoint: src/cybergov_voter.py:vote_on_opengov_proposal
+  work_pool:
+    name: 'cybergov-dispatcher-pool'
+
+- name: 'Cybergov MAGI Commenter'
+  description: 'Post a Comment to Subsquare'
+  flow_name: 'MAGI Comment'
+  entrypoint: src/cybergov_commenter.py:post_magi_comment_to_subsquare
   work_pool:
     name: 'cybergov-dispatcher-pool'

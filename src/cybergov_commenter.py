@@ -8,7 +8,7 @@ import s3fs
 
 
 @task
-def get_rationale_for_subsquare_comment(
+def get_infos_for_substrate_comment(
     network: str,
     proposal_id: int,
     s3_bucket: str,
@@ -18,14 +18,18 @@ def get_rationale_for_subsquare_comment(
 ):
     """
     Fetch MAGI vote result from S3 and execute vote
-
     Returns:
         vote_result: aye, nay or abstain
         comment: The summary / rationale that will be posted
+        proposal_height: the block at which the proposal was submitted
     """
     logger = get_run_logger()
-    file_path = f"{s3_bucket}/proposals/{network}/{proposal_id}/vote.json"
     logger.info(f"Checking for vote results on {network} for proposal {proposal_id}")
+
+    # Define file paths
+    base_path = f"{s3_bucket}/proposals/{network}/{proposal_id}"
+    vote_file_path = f"{base_path}/vote.json"
+    subsquare_file_path = f"{base_path}/raw_subsquare_data.json"
 
     try:
         s3 = s3fs.S3FileSystem(
@@ -36,24 +40,42 @@ def get_rationale_for_subsquare_comment(
             },
         )
 
-        with s3.open(file_path, "rb") as f:
+        # Get proposal_height from raw_subsquare_data.json
+        logger.info(f"Loading subsquare data from {subsquare_file_path}")
+        with s3.open(subsquare_file_path, "rb") as f:
+            subsquare_data = json.load(f)
+
+        proposal_height = subsquare_data.get("indexer", {}).get("blockHeight")
+        if proposal_height is None:
+            logger.warning(
+                f"Could not find 'indexer.blockHeight' in {subsquare_file_path}"
+            )
+        else:
+            logger.info(f"Found proposal height: {proposal_height}")
+
+        # Get vote_result and comment from vote.json
+        logger.info(f"Loading vote data from {vote_file_path}")
+        with s3.open(vote_file_path, "rb") as f:
             vote_data = json.load(f)
+        logger.info(f"Successfully loaded vote data from {vote_file_path}")
 
-        logger.info(f"Successfully loaded vote data from {file_path}")
-
+        # Assuming the vote decision is stored under the key 'vote_decision'
+        vote_result = vote_data.get("vote_decision")
         comment = vote_data.get("summary_rationale", "")
 
+        logger.info(f"Vote result for {proposal_id} on {network}: {vote_result}")
         logger.info(f"Comment for {proposal_id} on {network}: {comment}.")
-        return comment
 
-    except FileNotFoundError:
+        return comment, proposal_height
+
+    except FileNotFoundError as e:
         logger.info(
-            f"Vote file not found at {file_path}. No inference result available yet."
+            f"A required file was not found ({e}). No inference result available yet."
         )
         return None, None, None
     except Exception as e:
         logger.error(
-            f"Failed to process vote file {file_path} due to an unexpected error: {e}"
+            f"Failed to process files for proposal {proposal_id} on {network} due to an unexpected error: {e}"
         )
         raise
 
@@ -133,10 +155,10 @@ def post_magi_comment_to_subsquare(
     """
     logger = get_run_logger()
 
-    s3_bucket_block = await String.load("scaleway-bucket-name")
-    endpoint_block = await String.load("scaleway-s3-endpoint-url")
-    access_key_block = await Secret.load("scaleway-access-key-id")
-    secret_key_block = await Secret.load("scaleway-secret-access-key")
+    s3_bucket_block = String.load("scaleway-bucket-name")
+    endpoint_block = String.load("scaleway-s3-endpoint-url")
+    access_key_block = Secret.load("scaleway-access-key-id")
+    secret_key_block = Secret.load("scaleway-secret-access-key")
 
     s3_bucket = s3_bucket_block.value
     endpoint_url = endpoint_block.value
@@ -147,7 +169,7 @@ def post_magi_comment_to_subsquare(
         f"Posting comment to Subsquare on network {network} for proposal {proposal_id}"
     )
 
-    comment = get_rationale_for_subsquare_comment(
+    comment, proposal_height = get_infos_for_substrate_comment(
         network=network,
         proposal_id=proposal_id,
         s3_bucket=s3_bucket,
@@ -160,7 +182,7 @@ def post_magi_comment_to_subsquare(
         post_comment_to_subsquare(
             network=network,
             proposal_id=proposal_id,
-            proposed_height=7902563, ## TODO need to get this from the raw_subsquare info
+            proposed_height=proposal_height,
             comment=comment,
         )
         logger.info(f"✅ Successfully posted comment for {proposal_id} on {network}")
