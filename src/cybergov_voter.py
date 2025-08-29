@@ -150,7 +150,8 @@ def get_inference_result(
         remark_text: the hash of vote.json the data that was used to vote
     """
     logger = get_run_logger()
-    file_path = f"{s3_bucket}/proposals/{network}/{proposal_id}/vote.json"
+    vote_file_path = f"{s3_bucket}/proposals/{network}/{proposal_id}/vote.json"
+    manifest_file_path = f"{s3_bucket}/proposals/{network}/{proposal_id}/manifest.json"
     logger.info(f"Checking for vote results on {network} for proposal {proposal_id}")
 
     try:
@@ -162,10 +163,10 @@ def get_inference_result(
             },
         )
 
-        with s3.open(file_path, "rb") as f:
+        with s3.open(vote_file_path, "rb") as f:
             vote_file_bytes = json.load(f)
 
-        logger.info(f"Successfully loaded vote data from {file_path}")
+        logger.info(f"Successfully loaded vote data from {vote_file_path}")
         vote_data = json.loads(vote_file_bytes)
 
         vote_result = vote_data.get("final_decision", "").upper()
@@ -177,8 +178,11 @@ def get_inference_result(
         conviction = 6 if is_unanimous else 1
 
         ## Hmm maybe we should hash the manifest-llm.json instead! 
-        remark_text = hashlib.sha256(vote_file_bytes).hexdigest()
-        logger.info(f"Calculated remark (SHA256 hash of vote.json): {remark_text}")
+        with s3.open(manifest_file_path, "rb") as f:
+            manifest_bytes = json.load(f)
+
+        remark_text = hashlib.sha256(manifest_bytes).hexdigest()
+        logger.info(f"Calculated remark (SHA256 hash of manifest.json): {remark_text}")
 
         logger.info(
             f"Vote decision for proposal {proposal_id}: {vote_result} with conviction {conviction}."
@@ -187,12 +191,12 @@ def get_inference_result(
 
     except FileNotFoundError:
         logger.info(
-            f"Vote file not found at {file_path}. No inference result available yet."
+            f"Vote file not found at {vote_file_path}. No inference result available yet."
         )
         return None, None, None
     except Exception as e:
         logger.error(
-            f"Failed to process vote file {file_path} due to an unexpected error: {e}"
+            f"Failed to process vote file {vote_file_path} due to an unexpected error: {e}"
         )
         raise
 
