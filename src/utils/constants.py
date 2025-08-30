@@ -80,3 +80,9 @@ proxy_mapping = {
         "proxy": CYBERGOV_KUSAMA_PROXY_PUBKEY
     },
 }
+
+voting_power = {
+    "paseo":    3500    * 10**10,
+    "polkadot": 200000  * 10**10,
+    "kusama":   5000    * 10**12
+}

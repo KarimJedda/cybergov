@@ -21,7 +21,8 @@ from utils.constants import (
     COMMENTING_DEPLOYMENT_ID,
     COMMENTING_SCHEDULE_DELAY_MINUTES,
     CONVICTION_MAPPING,
-    proxy_mapping
+    proxy_mapping,
+    voting_power
 )
 
 CONVICTION_UNANIMOUS = 6
@@ -81,7 +82,7 @@ def create_and_sign_vote_tx(
                     "SplitAbstain": {
                       "aye": 0,
                       "nay": 0,
-                      "abstain": 3500 * 10**10
+                      "abstain": voting_power[network]
                     }
                 }
             else:
@@ -91,8 +92,7 @@ def create_and_sign_vote_tx(
                             "aye": True if vote.capitalize() == "Aye" else False,
                             "conviction": CONVICTION_MAPPING[conviction],
                         },
-                        ## TODO: how much to vote with?
-                        "balance": 3500 * 10**10,
+                        "balance": voting_power[network]
                     }
                 }
             vote_call = substrate.compose_call(
