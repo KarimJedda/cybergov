@@ -350,6 +350,16 @@ def vote_on_opengov_proposal(
         logger.info(
             f"✅ Successfully processed vote for proposal {proposal_id}. View transaction at: https://{network}.subscan.io/extrinsic/{tx_hash} or https://assethub-{network}.subscan.io/extrinsic/{tx_hash}"
         )
+
+        logger.info(
+            f"Proceeding to posting comment..."
+        )
+
+        is_already_scheduled = await check_if_commenting_already_scheduled(
+            proposal_id=proposal_id, network=network
+        )
+        if not is_already_scheduled:
+            await schedule_comment_task(proposal_id=proposal_id, network=network)
     else:
         logger.error(f"Cannot vote, the {network}/{proposal_id}/vote.json is invalid")
         raise RuntimeError(
