@@ -305,7 +305,7 @@ async def schedule_comment_task(proposal_id: int, network: str):
 
 
 @flow(name="Vote on Polkadot OpenGov", log_prints=True)
-def vote_on_opengov_proposal(
+async def vote_on_opengov_proposal(
     network: str,
     proposal_id: int,
 ):
@@ -314,10 +314,10 @@ def vote_on_opengov_proposal(
     """
     logger = get_run_logger()
 
-    s3_bucket_block = String.load("scaleway-bucket-name")
-    endpoint_block = String.load("scaleway-s3-endpoint-url")
-    access_key_block = Secret.load("scaleway-access-key-id")
-    secret_key_block = Secret.load("scaleway-secret-access-key")
+    s3_bucket_block = await String.load("scaleway-bucket-name")
+    endpoint_block = await String.load("scaleway-s3-endpoint-url")
+    access_key_block = await Secret.load("scaleway-access-key-id")
+    secret_key_block = await Secret.load("scaleway-secret-access-key")
 
     s3_bucket = s3_bucket_block.value
     endpoint_url = endpoint_block.value
@@ -367,8 +367,10 @@ def vote_on_opengov_proposal(
         ) from None
 
 if __name__ == "__main__":
-    # Example of how to run the flow
-    vote_on_opengov_proposal(
-        network="paseo",
-        proposal_id=100,
+    import asyncio
+    asyncio.run(
+        vote_on_opengov_proposal(
+            network="paseo", 
+            proposal_id=100
+        )
     )
