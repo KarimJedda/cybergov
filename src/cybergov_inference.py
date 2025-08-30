@@ -212,7 +212,7 @@ async def schedule_voting_task(proposal_id: int, network: str):
     logger = get_run_logger()
 
     delay = timedelta(minutes=VOTING_SCHEDULE_DELAY_MINUTES)
-    scheduled_time = datetime.now(datetime.timezone.utc) + delay
+    scheduled_time = datetime.now(timezone.utc) + delay
     logger.info(
         f"Scheduling MAGI vote for proposal {proposal_id} on '{network}' "
         f"to run at {scheduled_time.isoformat()}"
@@ -264,3 +264,12 @@ async def github_action_trigger_and_monitor(proposal_id: int, network: str):
         logger.info(
             "Magi Inference was successful but vote is already scheduled, nothing to do."
         )
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(
+        github_action_trigger_and_monitor(
+            network="paseo", 
+            proposal_id=100
+        )
+    )
