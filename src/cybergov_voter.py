@@ -39,7 +39,7 @@ def get_remark_hash(s3_client: s3fs.S3FileSystem, file_path: str) -> str:
         manifest_data = json.load(f)
     
     # To hash consistently, dump the dict to a string with sorted keys, then encode to bytes.
-    canonical_manifest = json.dumps(manifest_data, sort_keys=True).encode("utf-8")
+    canonical_manifest = json.dumps(manifest_data, sort_keys=True, separators=(',', ':')).encode("utf-8")
     return hashlib.sha256(canonical_manifest).hexdigest()
 
 @task
