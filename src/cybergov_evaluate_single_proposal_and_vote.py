@@ -242,12 +242,12 @@ def main():
             "outputs": manifest_outputs
         }
         
-        manifest_path = local_workspace / "manifest-llm.json"
+        manifest_path = local_workspace / "manifest.json"
         with open(manifest_path, 'w') as f:
             json.dump(manifest, f, indent=2)
         
         # Upload manifest and signature with stable names
-        s3.upload(str(manifest_path), f"{proposal_s3_path}/manifest-llm.json")
+        s3.upload(str(manifest_path), f"{proposal_s3_path}/manifest.json")
         logger.info("✅ Uploaded manifest.")
         last_good_step = "attestation_and_upload"
 
