@@ -154,7 +154,7 @@ async def check_if_already_scheduled(proposal_id: int, network: str) -> bool:
                     type=FlowRunFilterStateType(
                         any_=[
                             StateType.RUNNING,
-                            StateType.COMPLETED,
+                            StateType.COMPLETED, # If automatically triggered, we don't re-scape. Gotta be done manually. 
                             StateType.PENDING,
                             StateType.SCHEDULED,
                         ]
@@ -227,11 +227,7 @@ async def cybergov_dispatcher_flow(
         logger.warning(
             f"MANUAL OVERRIDE: Scheduling single proposal {proposal_id} on '{network}'."
         )
-        is_already_scheduled = await check_if_already_scheduled(
-            proposal_id=proposal_id, network=network
-        )
-        if not is_already_scheduled:
-            await schedule_scraping_task(proposal_id=proposal_id, network=network)
+        await schedule_scraping_task(proposal_id=proposal_id, network=network)
         return
 
     logger.info(f"Running in scheduled mode for networks: {networks}")
@@ -257,3 +253,13 @@ async def cybergov_dispatcher_flow(
             )
             if not is_already_scheduled:
                 await schedule_scraping_task(proposal_id=p_id, network=net)
+
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(
+        cybergov_dispatcher_flow(
+            network="paseo", 
+            proposal_id=100
+        )
+    )
