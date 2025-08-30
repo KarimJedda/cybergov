@@ -311,6 +311,12 @@ def vote_on_opengov_proposal(
 ):
     """
     A full workflow to vote on a Polkadot OpenGov proposal.
+
+    ## TODO: What to do with re-votes? People edit their proposals or ask to vote nay for replacement proposals.
+    ### Option 1: re-run the pipeline and overwrite, in the scraper, verify if files exist and if yes, add a note that this is a RE-vote
+    ###           by creating a versioned file vote-0.json, or move all the current stuff into a folder /previousvotes/ or something
+    ### Option 2: when fetching, always create a new folder and change subsequent logic
+    ### Option 1 seems more straightforward, and doesn't require changes to further pipelines, only the scraping logic. 
     """
     logger = get_run_logger()
 

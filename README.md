@@ -35,6 +35,21 @@ network will be one of polkadot, kusama, paseo. These files will be publicly acc
 
 The vote will be bundled in a utility batch call, with the SHA256(manifest.json) as a justification! 
 
+For the odd case where a re-vote is required, due to changes or whatever, the current files will be moved to a sub-folder like so:
+
+```
+s3://your-bucket/proposals/{network}/{proposal_id}/{vote_index}
+├── raw_subsquare_data.json
+├── content.md
+├── llm_analyses
+│   ├── balthazar.json
+│   ├── caspar.json
+│   └── melchior.json
+├── manifest.json
+└── vote.json
+```
+
+The files at the root `s3://your-bucket/proposals/{network}/{proposal_id}/` always point to the latest vote, the other files are left as archive. Re-votes are only triggered if an issue is filed to the repository with a rationale & justification. Anyone can request a re-vote. The rationale & justification will not be provided to the LLMs, all the contents of the rationale should be public and available on the proposal page. 
 
 ## llm_analyses/magi.json
 
