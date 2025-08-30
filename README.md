@@ -83,10 +83,10 @@ The vote will be bundled in a utility batch call, with the SHA256(manifest.json)
 
 Governance proxies, as sub-accounts. Cannot be pure because we need to sign a message to post a comment on Subsquare. 
 
-cybergov-main
-= cybergov/ikari (Polkadot)
-= cybergov/akagi (Kusama)
-= cybergov/akira (Paseo)
+cybergov-main <- identity etc will be set here
+├── cybergov/ikari (Polkadot Mainnet) <- will be sub identity with Governance Proxy for the main account
+├── cybergov/akagi (Kusama Mainnet)   
+└── cybergov/akira (Polkadot Testnet aka Paseo) 
 
 
 When voting, one of the proxy posts the vote, along with the SHA256 of the manifest.json as a system remark. People then can indepently verify / scrutinize each vote decision. 
@@ -95,3 +95,24 @@ From any chain action of these accounts, it's possible to link it to a signed Su
 From any signed Subsquare comment, it's possible to follow the on-chain info, by correlating SHA256(manifest.json) with the system.remark input. 
 
 Question: What of re-votes? Sometimes we have to run the voting again. Perhaps we should bake in the fact that there will be several votes, or create folders for each vote. Then it's possible to diff. 
+
+### Chain specifics 
+
+```
+## Identity cannot be set with Vault on Paseo, cf https://github.com/novasamatech/metadata-portal/issues/1367 
+CYBERGOV_PASEO_MAIN_PUBKEY      = "13Q56KnUmLNe8fomKD3hoY38ZwLKZgRGdY4RTovRNFjMSwKw"
+CYBERGOV_PASEO_PROXY_PUBKEY     = "14zNhvyLnJKtYRmfptavEPWHuV9qEXZQNqXCjDmnvjrg1gtL"
+
+CYBERGOV_POLKADOT_MAIN_PUBKEY   = "13Q56KnUmLNe8fomKD3hoY38ZwLKZgRGdY4RTovRNFjMSwKw"
+CYBERGOV_POLKADOT_PROXY_PUBKEY  = "15DbGtWxaAU6tDPpdZhP9QyVZZWdSXaGCjD88cRZhhdCKTjE"
+
+CYBERGOV_KUSAMA_MAIN_PUBKEY     = "EyPcJsHXv86Snch8GokZLZyrucug3gK1RAghBD2HxvL1YRZ"
+CYBERGOV_KUSAMA_PROXY_PUBKEY    = "GWUyiyVmA6pbubhM9h7A6qGDqTJKJK3L3YoJsWe6DP7m67a"
+```
+
+## Notes on migration
+
+Very smooth sailing:
+
+- Sidecar: replace with the ones pointing to the AssetHubs
+- Subsquare: need to test and make sure, maybe pause Cybergov for 1 or 2 days after migration once manual checks on Subsquare pass
