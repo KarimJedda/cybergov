@@ -15,19 +15,37 @@ from prefect.blocks.system import String, Secret
 import s3fs
 import hashlib
 import datetime
+from enum import Enum
 import json
 from utils.constants import (
     COMMENTING_DEPLOYMENT_ID,
     COMMENTING_SCHEDULE_DELAY_MINUTES,
     CONVICTION_MAPPING,
+    proxy_mapping
 )
 
+CONVICTION_UNANIMOUS = 6
+CONVICTION_DEFAULT = 1
+
+class VoteResult(str, Enum):
+    AYE = "AYE"
+    NAY = "NAY"
+    ABSTAIN = "ABSTAIN"
+
+def get_remark_hash(s3_client: s3fs.S3FileSystem, file_path: str) -> str:
+    """Reads a JSON file from S3, and returns its canonical SHA256 hash."""
+    with s3_client.open(file_path, "rb") as f:
+        manifest_data = json.load(f)
+    
+    # To hash consistently, dump the dict to a string with sorted keys, then encode to bytes.
+    canonical_manifest = json.dumps(manifest_data, sort_keys=True).encode("utf-8")
+    return hashlib.sha256(canonical_manifest).hexdigest()
 
 @task
 def create_and_sign_vote_tx(
     proposal_id: int,
     network: str,
-    vote_aye: bool,
+    vote: str,
     conviction: int,
     remark_text: str,
 ) -> str:
@@ -52,27 +70,48 @@ def create_and_sign_vote_tx(
             try:
                 mnemonic = Secret.load(f"{network}-cybergov-mnemonic").get()
                 keypair = Keypair.create_from_mnemonic(mnemonic)
-                logger.info(f"Loaded keypair for address: {keypair.ss58_address}")
+                logger.info(f"Loaded keypair for address: {keypair.ss58_address}  / {proxy_mapping[network]['proxy']} ")
             except ValueError:
                 logger.error(f"Could not load '{network}-voter-mnemonic' Secret block.")
                 raise
 
-            vote = {
-                "Standard": {
-                    "vote": {
-                        "aye": vote_aye,
-                        "conviction": CONVICTION_MAPPING[conviction],
-                    },
-                    ## TODO: how much to vote with?
-                    "balance": 3500 * 10**10,
+            # The conviction vote will be submitted as a proxy
+            if vote.capitalize() == "Abstain":
+                vote_parameters = {
+                    "SplitAbstain": {
+                      "aye": 0,
+                      "nay": 0,
+                      "abstain": 3500 * 10**10
+                    }
                 }
-            }
+            else:
+                vote_parameters = {
+                    "Standard": {
+                        "vote": {
+                            "aye": True if vote.capitalize() == "Aye" else False,
+                            "conviction": CONVICTION_MAPPING[conviction],
+                        },
+                        ## TODO: how much to vote with?
+                        "balance": 3500 * 10**10,
+                    }
+                }
             vote_call = substrate.compose_call(
                 call_module="ConvictionVoting",
                 call_function="vote",
-                call_params={"poll_index": proposal_id, "vote": vote},
+                call_params={"poll_index": proposal_id, "vote": vote_parameters},
             )
 
+            proxy_vote_call = substrate.compose_call(
+                call_module="Proxy",
+                call_function="proxy",
+                call_params={
+                    "real": proxy_mapping[network]['main'],
+                    "force_proxy_type": None,
+                    "call": vote_call
+                }
+            )
+
+            # The system remark will be submitted regularly 
             remark_call = substrate.compose_call(
                 call_module="System",
                 call_function="remark_with_event",
@@ -83,7 +122,7 @@ def create_and_sign_vote_tx(
             batch_call = substrate.compose_call(
                 call_module="Utility",
                 call_function="batch_all",
-                call_params={"calls": [vote_call, remark_call]},
+                call_params={"calls": [proxy_vote_call, remark_call]},
             )
 
             extrinsic = substrate.create_signed_extrinsic(
@@ -145,7 +184,7 @@ def get_inference_result(
     Fetch MAGI vote result from S3 and execute vote
 
     Returns:
-        vote_result: aye, nay or abstain
+        vote_result: Aye, Nay or Abstain
         conviction: how convinced (if aye or nay)
         remark_text: the hash of vote.json the data that was used to vote
     """
@@ -164,41 +203,41 @@ def get_inference_result(
         )
 
         with s3.open(vote_file_path, "rb") as f:
-            vote_file_bytes = json.load(f)
-
+            vote_data = json.load(f)
         logger.info(f"Successfully loaded vote data from {vote_file_path}")
-        vote_data = json.loads(vote_file_bytes)
 
-        vote_result = vote_data.get("final_decision", "").upper()
-        if vote_result not in ["AYE", "NAY", "ABSTAIN"]:
-            raise ValueError(f"Invalid 'final_decision' in vote.json: {vote_result}")
+        raw_vote = vote_data.get("final_decision", "").upper()
+        try:
+            vote_result = VoteResult(raw_vote)
+        except ValueError:
+            raise ValueError(f"Invalid 'final_decision' in vote.json: {raw_vote}")
 
-        # TODO tweak this a bit more
         is_unanimous = vote_data.get("is_unanimous", False)
-        conviction = 6 if is_unanimous else 1
+        conviction = CONVICTION_UNANIMOUS if is_unanimous else CONVICTION_DEFAULT
 
-        ## Hmm maybe we should hash the manifest-llm.json instead! 
-        with s3.open(manifest_file_path, "rb") as f:
-            manifest_bytes = json.load(f)
-
-        remark_text = hashlib.sha256(manifest_bytes).hexdigest()
-        logger.info(f"Calculated remark (SHA256 hash of manifest.json): {remark_text}")
+        remark_text = get_remark_hash(s3, manifest_file_path)
+        logger.info(f"Calculated remark (SHA256 of manifest): {remark_text}")
 
         logger.info(
-            f"Vote decision for proposal {proposal_id}: {vote_result} with conviction {conviction}."
+            f"Vote for proposal {proposal_id}: {vote_result.value.capitalize()} with conviction {conviction}."
         )
         return vote_result, conviction, remark_text
 
     except FileNotFoundError:
-        logger.info(
-            f"Vote file not found at {vote_file_path}. No inference result available yet."
+        logger.warning(
+            f"Vote file not found at {vote_file_path}. No inference result available."
         )
         return None, None, None
     except Exception as e:
+        # Log the root cause for debugging, but don't expose it to the caller.
         logger.error(
-            f"Failed to process vote file {vote_file_path} due to an unexpected error: {e}"
+            f"Failed to process vote for proposal {proposal_id}. "
+            f"Error: ({type(e).__name__}) {e}"
         )
-        raise
+        # Raise a new, clean exception to signal failure without the stack trace.
+        raise RuntimeError(
+            f"Unexpected error processing vote for proposal {proposal_id}."
+        ) from None
 
 
 @task
@@ -266,22 +305,19 @@ async def schedule_comment_task(proposal_id: int, network: str):
 
 
 @flow(name="Vote on Polkadot OpenGov", log_prints=True)
-async def vote_on_opengov_proposal(
+def vote_on_opengov_proposal(
     network: str,
     proposal_id: int,
-    vote_aye: bool = True,
-    conviction: int = 1,
-    remark_text: str = "Voted via Prefect",
 ):
     """
     A full workflow to vote on a Polkadot OpenGov proposal.
     """
     logger = get_run_logger()
 
-    s3_bucket_block = await String.load("scaleway-bucket-name")
-    endpoint_block = await String.load("scaleway-s3-endpoint-url")
-    access_key_block = await Secret.load("scaleway-access-key-id")
-    secret_key_block = await Secret.load("scaleway-secret-access-key")
+    s3_bucket_block = String.load("scaleway-bucket-name")
+    endpoint_block = String.load("scaleway-s3-endpoint-url")
+    access_key_block = Secret.load("scaleway-access-key-id")
+    secret_key_block = Secret.load("scaleway-secret-access-key")
 
     s3_bucket = s3_bucket_block.value
     endpoint_url = endpoint_block.value
@@ -297,7 +333,7 @@ async def vote_on_opengov_proposal(
         secret_key=secret_key,
     )
 
-    if all(vote_result, conviction, vote_file_hash):
+    if all([vote_result, conviction, vote_file_hash]):
         signed_tx = create_and_sign_vote_tx(
             network=network,
             proposal_id=proposal_id,
@@ -312,19 +348,17 @@ async def vote_on_opengov_proposal(
         )
 
         logger.info(
-            f"✅ Successfully processed vote for proposal {proposal_id}. View transaction at: https://{network}.subscan.io/extrinsic/{tx_hash}"
+            f"✅ Successfully processed vote for proposal {proposal_id}. View transaction at: https://{network}.subscan.io/extrinsic/{tx_hash} or https://assethub-{network}.subscan.io/extrinsic/{tx_hash}"
         )
     else:
         logger.error(f"Cannot vote, the {network}/{proposal_id}/vote.json is invalid")
-        raise
-
+        raise RuntimeError(
+            f"Unexpected error processing vote for proposal {proposal_id}."
+        ) from None
 
 if __name__ == "__main__":
     # Example of how to run the flow
     vote_on_opengov_proposal(
         network="paseo",
         proposal_id=100,
-        vote_aye=True,
-        conviction=6,
-        remark_text="max bidding",
     )
