@@ -11,18 +11,6 @@ from collections import Counter
 
 logger = setup_logging()
 
-def sign_manifest(manifest_path: Path) -> Path:
-    """
-    Placeholder for OIDC-based signing.
-    """
-    logger.info("--> (Placeholder) Signing manifest with Cybergov Master Key...")
-    signature_path = manifest_path.with_suffix(".json.sig")
-    dummy_signature_content = f"dummy-signature-for-{manifest_path.name}-signed-at-{datetime.datetime.now(datetime.timezone.utc).isoformat()}"
-    with open(signature_path, "w") as f:
-        f.write(dummy_signature_content)
-    logger.info(f"--> (Placeholder) Dummy signature created at {signature_path}")
-    return signature_path
-
 
 def generate_summary_rationale(votes_breakdown) -> str:
     """
@@ -214,7 +202,7 @@ def main():
         local_vote_file = consolidate_vote(local_analysis_files, local_workspace)
         last_good_step = "vote_consolidation"
 
-        # Step 4: Generate manifest, sign it, and upload all outputs
+        # Step 4: Generate manifest and upload all outputs
         logger.info("04 - Attesting, signing, and uploading outputs...")
         manifest_outputs = []
         files_to_process = local_analysis_files + [local_vote_file]
@@ -258,13 +246,9 @@ def main():
         with open(manifest_path, 'w') as f:
             json.dump(manifest, f, indent=2)
         
-        # Sign the manifest (placeholder)
-        signature_path = sign_manifest(manifest_path)
-        
         # Upload manifest and signature with stable names
         s3.upload(str(manifest_path), f"{proposal_s3_path}/manifest-llm.json")
-        s3.upload(str(signature_path), f"{proposal_s3_path}/manifest-llm.json.sig")
-        logger.info("✅ Uploaded manifest and signature.")
+        logger.info("✅ Uploaded manifest.")
         last_good_step = "attestation_and_upload"
 
         logger.info("\n🎉 CyberGov V0 processing complete!")
