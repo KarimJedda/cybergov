@@ -227,6 +227,10 @@ def archive_previous_run(network: str, proposal_id: int):
         },
     )
 
+    if not s3.exists(base_path):
+        logger.info(f"Base path {base_path} does not exist yet. Skipping archive step.")
+        return
+
     # 1. Check if the base directory has any contents
     existing_contents = s3.ls(base_path, detail=False)
     logger.info(f"Found {len(existing_contents)} items in {base_path}.")
@@ -333,7 +337,6 @@ The data was successfully read from `{input_s3_path}`.
 
 *This content is for demonstration purposes and will be replaced with real on-chain and off-chain data enrichment in the future.*
 """
-
         # Write the new content.md file
         logger.info(f"Writing dummy markdown to {output_s3_path}...")
         with s3.open(output_s3_path, "w") as f:
