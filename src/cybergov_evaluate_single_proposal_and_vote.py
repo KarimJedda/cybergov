@@ -68,7 +68,7 @@ def perform_preflight_checks(s3, proposal_s3_path, local_workspace):
     logger.info(f"✅ {Path(content_md_s3_path).name} found.")
 
     # 3. Check for local system prompts
-    prompt_dir = Path("system_prompts")
+    prompt_dir = Path("templates/system_prompts")
     magi_models = ["balthazar", "caspar", "melchior"]
     for model in magi_models:
         prompt_file = prompt_dir / f"{model}_system_prompt.md"

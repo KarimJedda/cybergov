@@ -211,8 +211,8 @@ async def schedule_voting_task(proposal_id: int, network: str):
     """Schedules the cybergov_voter flow to run in the future."""
     logger = get_run_logger()
 
-    delay = datetime.timedelta(minutes=VOTING_SCHEDULE_DELAY_MINUTES)
-    scheduled_time = datetime.datetime.now(datetime.timezone.utc) + delay
+    delay = timedelta(minutes=VOTING_SCHEDULE_DELAY_MINUTES)
+    scheduled_time = datetime.now(datetime.timezone.utc) + delay
     logger.info(
         f"Scheduling MAGI vote for proposal {proposal_id} on '{network}' "
         f"to run at {scheduled_time.isoformat()}"

@@ -35,10 +35,12 @@ network will be one of polkadot, kusama, paseo. These files will be publicly acc
 
 The vote will be bundled in a utility batch call, with the SHA256(manifest.json) as a justification! 
 
+## Re-voting
+
 For the odd case where a re-vote is required, due to changes or whatever, the current files will be moved to a sub-folder like so:
 
 ```
-s3://your-bucket/proposals/{network}/{proposal_id}/{vote_index}
+s3://your-bucket/proposals/{network}/{proposal_id}/vote_archive_{vote_index}
 ├── raw_subsquare_data.json
 ├── content.md
 ├── llm_analyses
