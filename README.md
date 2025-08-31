@@ -141,4 +141,5 @@ Very smooth sailing:
   - A good idea but complicated to automate fully, we'll need to automatically map what is being said to the proper proposals. False positives could be detrimental to data quality. 
 - Add historical context to the proposals (RAG/embeddings), this will be prototyped. Historical data can be provided by Subsquare.
 - Link vote_archive_{index} to to vote_archive_{index-1}, this way we ensure successive runs are linked, and the operator isn't fishing for favorable votes, although the latter would be visible (hash on-chain)
+- Setting up the project, how to etc (note: there seems to be some messup with uv & pip when installing the requirements on the latest versions)
 - ...
