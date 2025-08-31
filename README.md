@@ -51,7 +51,7 @@ s3://your-bucket/proposals/{network}/{proposal_id}/vote_archive_{vote_index}
 └── vote.json
 ```
 
-The files at the root `s3://your-bucket/proposals/{network}/{proposal_id}/` always point to the latest vote, the other files are left as archive. Re-votes are only triggered if an issue is filed to the repository with a rationale & justification. Anyone can request a re-vote. The rationale & justification will not be provided to the LLMs, all the contents of the rationale should be public and available on the proposal page. 
+The files at the root `s3://your-bucket/proposals/{network}/{proposal_id}/` always point to the latest vote, the other files are left as archive. Re-votes are only triggered if an issue is filed to the repository with a rationale & justification, or in the odd case where a "Please vote Nay" is added to a proposal. Anyone can request a re-vote. The rationale & justification as written in the GitHub issue will not be provided to the LLMs, all the contents of the rationale should be public and available on the proposal page. 
 
 ## llm_analyses/magi.json
 
@@ -100,11 +100,12 @@ The files at the root `s3://your-bucket/proposals/{network}/{proposal_id}/` alwa
 
 Governance proxies, as sub-accounts. Cannot be pure because we need to sign a message to post a comment on Subsquare. 
 
+```
 cybergov-main <- identity etc will be set here
 ├── cybergov/ikari (Polkadot Mainnet) <- will be sub identity with Governance Proxy for the main account
 ├── cybergov/akagi (Kusama Mainnet)   
 └── cybergov/akira (Polkadot Testnet aka Paseo) 
-
+```
 
 When voting, one of the proxy posts the vote, along with the SHA256 of the manifest.json as a system remark. People then can indepently verify / scrutinize each vote decision. 
 
@@ -133,3 +134,11 @@ Very smooth sailing:
 
 - Sidecar: replace with the ones pointing to the AssetHubs
 - Subsquare: need to test and make sure, maybe pause Cybergov for 1 or 2 days after migration once manual checks on Subsquare pass
+
+## TODOs & Ideas
+
+- "The White Rabbit" provided the idea of scraping AAG YouTube discussions and adding them to the context of the proposals. 
+  - A good idea but complicated to automate fully, we'll need to automatically map what is being said to the proper proposals. False positives could be detrimental to data quality. 
+- Add historical context to the proposals (RAG/embeddings), this will be prototyped. Historical data can be provided by Subsquare.
+- Link vote_archive_{index} to to vote_archive_{index-1}, this way we ensure successive runs are linked, and the operator isn't fishing for favorable votes, although the latter would be visible (hash on-chain)
+- ...
