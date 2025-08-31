@@ -131,18 +131,18 @@ def format_analysis_to_markdown(analysis, proposal_cost: str) -> str:
     md = [f"# {analysis.sanitized_title}\n", f"{analysis.sanitized_content}\n", "\n---\n"]
 
     if analysis.is_too_verbose.lower().strip() == 'yes':
-        md.append("> 📜 **Proposal Flagged for Excessive Length**\n")
+        md.append("> **Proposal Flagged for Excessive Length**\n")
         md.append("> This proposal is too long for a complete automated analysis. Key details may be missed or misinterpreted. It is recommended to **reject** this proposal and request the proposer to submit a more concise version with a clear executive summary.\n")
 
     md.append("### Automated Governance Analysis\n")
     
     # Display the trusted, pre-calculated spend prominently
-    md.append(f"*   **Total Requested Spend:** 💰 `{proposal_cost}`")
+    md.append(f"*   **Total Requested Spend:** `{proposal_cost}`")
 
     if analysis.is_sufficient_for_vote.lower().strip() == 'yes':
-        md.append("*   **Vote Readiness:** ✅ Sufficient information to decide.")
+        md.append("*   **Vote Readiness:** Sufficient information to decide.")
     else:
-        md.append("*   **Vote Readiness:** 🛑 Not enough information to decide.")
+        md.append("*   **Vote Readiness:** Not enough information to decide.")
 
     if analysis.has_dangerous_link.lower().strip() == 'yes':
         md.append("*   **Warning:** ⚠️ Linking to external mutable data sources is dangerous and we don’t advocate it, all the info should be in the proposal content body to prevent future changes.")
