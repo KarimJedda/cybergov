@@ -112,7 +112,6 @@ When voting, one of the proxy posts the vote, along with the SHA256 of the manif
 From any chain action of these accounts, it's possible to link it to a signed Subsquare comment. 
 From any signed Subsquare comment, it's possible to follow the on-chain info, by correlating SHA256(manifest.json) with the system.remark input. 
 
-Question: What of re-votes? Sometimes we have to run the voting again. Perhaps we should bake in the fact that there will be several votes, or create folders for each vote. Then it's possible to diff. 
 
 ### Chain specifics 
 
