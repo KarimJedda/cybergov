@@ -5,7 +5,7 @@ import s3fs
 import os 
 
 from utils.helpers import setup_logging, get_config_from_env, hash_file
-
+from utils.run_magi_eval import run_inference_for_proposal, setup_compiled_agent
 from pathlib import Path
 from collections import Counter
 
@@ -82,36 +82,60 @@ def perform_preflight_checks(s3, proposal_s3_path, local_workspace):
 
 def run_magi_evaluations(magi_models, local_workspace):
     """
-    Creates dummy LLM analysis files. In a real system, this would
-    involve actual LLM API calls using the content.md and system prompts.
+    Runs actual LLM evaluations using the dspy inference module.
+    The function signature and its role in the pipeline remain unchanged.
     """
-    logger.info("02 - Running MAGI V0 Evaluation...")
+    logger.info("02 - Running MAGI V0 Evaluation with live models...")
     analysis_dir = local_workspace / "llm_analyses"
     analysis_dir.mkdir(exist_ok=True)
-    
-    # Dummy data for demonstration
-    dummy_outputs = {
-        "balthazar": {"decision": "AYE", "confidence": 0.98, "model_name": "claude-3-opus"},
-        "caspar": {"decision": "NAY", "confidence": 0.85, "model_name": "gemini-1.5-pro"},
-        "melchior": {"decision": "AYE", "confidence": 0.91, "model_name": "gpt-4-turbo"},
+
+    # Step 1: Define the personalities that map to the magi_models list
+    # This keeps configuration within the orchestrator script.
+    magi_personalities = {
+        "balthazar": "Magi Balthazar-1: Polkadot must win.",
+        "melchior": "Magi Melchior-2: Polkadot must thrive.",
+        "caspar": "Magi Caspar-3: Polkadot must outlive us all.",
+    }
+    # Create the list of full personality strings to pass to the inference engine
+    personalities_to_run = {
+        model: magi_personalities[model]
+        for model in magi_models if model in magi_personalities
     }
 
+
+    # Step 2: Read the proposal content downloaded by pre-flight checks
+    proposal_content_path = local_workspace / "content.md"
+    if not proposal_content_path.exists():
+        raise FileNotFoundError(f"Proposal content not found at {proposal_content_path}")
+    proposal_text = proposal_content_path.read_text()
+
+
+    # Step 3: Setup the agent and run inference
+    logger.info("  Setting up compiled DSPy agent...")
+    compiled_agent, model_name_used = setup_compiled_agent()
+    logger.info(f"  Agent compiled. Using model: {model_name_used}")
+
+    logger.info("  Running inference for all personalities...")
+    llm_results = run_inference_for_proposal(compiled_agent, personalities_to_run, proposal_text)
+
+
+    # Step 4: Write the results to JSON files, matching the original format
     output_files = []
-    for model in magi_models:
-        output_path = analysis_dir / f"{model}.json"
+    for model_key, result_data in llm_results.items():
+        output_path = analysis_dir / f"{model_key}.json"
         data = {
-            "model_name": dummy_outputs[model]["model_name"],
+            "model_name": model_name_used,
             "timestamp_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "decision": dummy_outputs[model]["decision"],
-            "confidence": dummy_outputs[model]["confidence"],
-            "rationale": f"This is a dummy rationale for {model}. The proposal seems reasonable.",
-            "raw_api_response": {}
+            "decision": result_data["decision"],
+            "confidence": None,
+            "rationale": result_data["rationale"],
+            "raw_api_response": {} # TODO requires advanced logging in dspy
         }
         with open(output_path, 'w') as f:
             json.dump(data, f, indent=2)
         output_files.append(output_path)
-        logger.info(f"✅ Generated dummy analysis for {model}.")
-        
+        logger.info(f"✅ Generated REAL analysis for {model_key}.")
+
     return output_files
 
 
@@ -176,7 +200,9 @@ def main():
         s3 = s3fs.S3FileSystem(
             key=config["S3_ACCESS_KEY_ID"],
             secret=config["S3_ACCESS_KEY_SECRET"],
-            client_kwargs={"endpoint_url": config["S3_ENDPOINT_URL"]}
+            client_kwargs={"endpoint_url": config["S3_ENDPOINT_URL"]},
+            asynchronous=False,
+            loop=None  # <-- This is the key addition
         )
         
         proposal_s3_path = f"{s3_bucket}/proposals/{network}/{proposal_id}"
@@ -251,7 +277,7 @@ def main():
         logger.info("✅ Uploaded manifest.")
         last_good_step = "attestation_and_upload"
 
-        logger.info("\n🎉 CyberGov V0 processing complete!")
+        logger.info("🎉 CyberGov V0 processing complete!")
 
     except Exception as e:
         logger.error(f"\n💥 FATAL ERROR during processing: {e}")
