@@ -12,16 +12,53 @@ from collections import Counter
 logger = setup_logging()
 
 
-def generate_summary_rationale(votes_breakdown) -> str:
+def generate_summary_rationale(votes_breakdown, proposal_id, network, analysis_files) -> str:
     """
     Placeholder for the LLM call to generate a summary rationale.
     """
-    logger.info("--> (Placeholder) Calling LLM to generate summary rationale...")
+    logger.info("--> Generatign simple concatenated rationale...")
     # This would be a real LLM call in production.
     aye_votes = sum(1 for v in votes_breakdown if v['decision'].upper() == 'AYE')
     nay_votes = sum(1 for v in votes_breakdown if v['decision'].upper() == 'NAY')
     abstain_votes = sum(1 for v in votes_breakdown if v['decision'].upper() == 'ABSTAIN')
-    return f"The models voted {aye_votes} AYE, {nay_votes} NAY and {abstain_votes} ABSTAIN."
+
+    balthazar_rationale, balthazar_decision = None, None
+    melchior_rationale, melchior_decision = None, None
+    caspar_rationale, caspar_decision = None, None
+
+    for analysis_file in analysis_files:
+        with open(analysis_file, 'r') as f:
+            data = json.load(f)
+        
+        # Use the .name attribute of the Path object for comparison
+        if analysis_file.name == 'balthazar.json':
+            balthazar_rationale = data['rationale']
+            balthazar_decision = data['decision']
+        elif analysis_file.name == 'melchior.json':
+            melchior_rationale = data['rationale']
+            melchior_decision = data['decision']
+        elif analysis_file.name == 'caspar.json':
+            caspar_rationale = data['rationale']
+            caspar_decision = data['decision']
+
+    ## TODO get the vote number in here to inform people that this might not be the first vote (old links will go stale)
+    # requires a way to edit old proposal comments, maybe for later
+    summary_text = f"""
+<h2>CYBERGOV V0</h2>
+<p>The models voted {aye_votes} AYE, {nay_votes} NAY and {abstain_votes} ABSTAIN.</p>
+<h2>Outcome</h2>
+<ul>
+    <li>Balthazar voted <a href="https://cybergov.b-cdn.net/proposals/{network}/{proposal_id}/llm_analyses/balthazar.json">{balthazar_decision}</a></li>
+    <li>Melchior voted <a href="https://cybergov.b-cdn.net/proposals/{network}/{proposal_id}/llm_analyses/melchior.json">{melchior_decision}</a></li>
+    <li>Caspar voted <a href="https://cybergov.b-cdn.net/proposals/{network}/{proposal_id}/llm_analyses/balthazar.json">{balthazar_decision}</a></li>
+</ul>
+<p>In case of questions, remarks or contributions, please refer to:</p>
+<ul>
+    <li><a href="https://github.com/KarimJedda/cybergov/issues">https://github.com/KarimJedda/cybergov/issues</a></li>
+</ul>
+"""
+
+    return summary_text
 
 
 def perform_preflight_checks(s3, proposal_s3_path, local_workspace):
@@ -147,7 +184,7 @@ def run_magi_evaluations(magi_models_list, local_workspace):
     return output_files
 
 
-def consolidate_vote(analysis_files, local_workspace):
+def consolidate_vote(analysis_files, local_workspace, proposal_id, network):
     """
     Reads individual LLM analyses and creates a final vote.json file.
     """
@@ -183,7 +220,7 @@ def consolidate_vote(analysis_files, local_workspace):
         "is_conclusive": is_conclusive,
         "final_decision": final_decision,
         "is_unanimous": is_unanimous,
-        "summary_rationale": generate_summary_rationale(votes_breakdown),
+        "summary_rationale": generate_summary_rationale(votes_breakdown, proposal_id, network, analysis_files),
         "votes_breakdown": votes_breakdown
     }
     
@@ -233,7 +270,7 @@ def main():
         last_good_step = "magi_evaluation"
 
         # Step 3: Consolidate the vote
-        local_vote_file = consolidate_vote(local_analysis_files, local_workspace)
+        local_vote_file = consolidate_vote(local_analysis_files, local_workspace, proposal_id, network)
         last_good_step = "vote_consolidation"
 
         # Step 4: Generate manifest and upload all outputs

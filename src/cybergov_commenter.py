@@ -103,7 +103,7 @@ def post_comment_to_subsquare(
             "id": proposal_id,
         },
         "content": comment,
-        "content_format": "subsquare_md",
+        "content_format": "HTML",
         "timestamp": int(time.time() * 1000),
     }
 
