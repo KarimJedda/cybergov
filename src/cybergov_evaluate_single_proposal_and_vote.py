@@ -5,7 +5,7 @@ import s3fs
 import os 
 
 from utils.helpers import setup_logging, get_config_from_env, hash_file
-from utils.run_magi_eval import run_inference_for_proposal, setup_compiled_agent
+from utils.run_magi_eval import run_single_inference, setup_compiled_agent
 from pathlib import Path
 from collections import Counter
 
@@ -18,9 +18,10 @@ def generate_summary_rationale(votes_breakdown) -> str:
     """
     logger.info("--> (Placeholder) Calling LLM to generate summary rationale...")
     # This would be a real LLM call in production.
-    aye_votes = sum(1 for v in votes_breakdown if v['decision'] == 'AYE')
-    nay_votes = sum(1 for v in votes_breakdown if v['decision'] == 'NAY')
-    return f"This is a placeholder summary. The models voted {aye_votes} AYE and {nay_votes} NAY."
+    aye_votes = sum(1 for v in votes_breakdown if v['decision'].upper() == 'AYE')
+    nay_votes = sum(1 for v in votes_breakdown if v['decision'].upper() == 'NAY')
+    abstain_votes = sum(1 for v in votes_breakdown if v['decision'].upper() == 'ABSTAIN')
+    return f"The models voted {aye_votes} AYE, {nay_votes} NAY and {abstain_votes} ABSTAIN."
 
 
 def perform_preflight_checks(s3, proposal_s3_path, local_workspace):
@@ -80,61 +81,68 @@ def perform_preflight_checks(s3, proposal_s3_path, local_workspace):
     return manifest_inputs, local_content_path, magi_models
 
 
-def run_magi_evaluations(magi_models, local_workspace):
+def run_magi_evaluations(magi_models_list, local_workspace):
     """
-    Runs actual LLM evaluations using the dspy inference module.
-    The function signature and its role in the pipeline remain unchanged.
+    Runs LLM evaluations by compiling a separate, optimized agent for each Magi's model.
+    The function signature remains unchanged.
     """
-    logger.info("02 - Running MAGI V0 Evaluation with live models...")
+    logger.info("02 - Running MAGI V0 Evaluation (Compile-per-Model strategy)...")
     analysis_dir = local_workspace / "llm_analyses"
     analysis_dir.mkdir(exist_ok=True)
 
-    # Step 1: Define the personalities that map to the magi_models list
-    # This keeps configuration within the orchestrator script.
+    # --- Full configuration for all available Magi ---
     magi_personalities = {
-        "balthazar": "Magi Balthazar-1: Polkadot must win.",
-        "melchior": "Magi Melchior-2: Polkadot must thrive.",
-        "caspar": "Magi Caspar-3: Polkadot must outlive us all.",
+        "balthazar": "Magi Balthazar-1: Polkadot must win. Consider all proposals through the lens of strategic advantage and competitive positioning.",
+        "melchior": "Magi Melchior-2: Polkadot must thrive. Focus on ecosystem growth, developer activity, and user adoption.",
+        "caspar": "Magi Caspar-3: Polkadot must outlive us all. Prioritize long-term sustainability, sound economic models, and protocol resilience over short-term gains.",
     }
-    # Create the list of full personality strings to pass to the inference engine
-    personalities_to_run = {
-        model: magi_personalities[model]
-        for model in magi_models if model in magi_personalities
+
+    magi_llms = {
+        "balthazar": "openai/gpt-4o",
+        "melchior": "openrouter/google/gemini-2.5-pro-preview",
+        "caspar": "openrouter/x-ai/grok-code-fast-1",
     }
 
 
-    # Step 2: Read the proposal content downloaded by pre-flight checks
     proposal_content_path = local_workspace / "content.md"
     if not proposal_content_path.exists():
         raise FileNotFoundError(f"Proposal content not found at {proposal_content_path}")
     proposal_text = proposal_content_path.read_text()
-
-
-    # Step 3: Setup the agent and run inference
-    logger.info("  Setting up compiled DSPy agent...")
-    compiled_agent, model_name_used = setup_compiled_agent()
-    logger.info(f"  Agent compiled. Using model: {model_name_used}")
-
-    logger.info("  Running inference for all personalities...")
-    llm_results = run_inference_for_proposal(compiled_agent, personalities_to_run, proposal_text)
-
-
-    # Step 4: Write the results to JSON files, matching the original format
+    
     output_files = []
-    for model_key, result_data in llm_results.items():
-        output_path = analysis_dir / f"{model_key}.json"
+    for magi_key in magi_models_list:
+        if magi_key not in magi_llms:
+            logger.warning(f"Skipping '{magi_key}': No model configured.")
+            continue
+
+        model_id = magi_llms[magi_key]
+        personality_prompt = magi_personalities[magi_key]
+
+        logger.info(f"--- Processing Magi: {magi_key.upper()} ---")
+
+        # Step A: Compile a new agent specifically for this model
+        logger.info(f"  Compiling agent using model: {model_id}...")
+        compiled_agent = setup_compiled_agent(model_id=model_id)
+
+        # Step B: Run a single inference with the newly compiled agent
+        logger.info(f"  Running inference for {magi_key}...")
+        prediction = run_single_inference(compiled_agent, personality_prompt, proposal_text)
+
+        # Step C: Write the result to a JSON file
+        output_path = analysis_dir / f"{magi_key}.json"
         data = {
-            "model_name": model_name_used,
+            "model_name": model_id,
             "timestamp_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "decision": result_data["decision"],
+            "decision": prediction.vote.strip(),
             "confidence": None,
-            "rationale": result_data["rationale"],
-            "raw_api_response": {} # TODO requires advanced logging in dspy
+            "rationale": prediction.rationale.strip(),
+            "raw_api_response": {}
         }
         with open(output_path, 'w') as f:
             json.dump(data, f, indent=2)
+        
         output_files.append(output_path)
-        logger.info(f"✅ Generated REAL analysis for {model_key}.")
+        logger.info(f"✅ Generated analysis for {magi_key} and saved to {output_path.name}")
 
     return output_files
 
