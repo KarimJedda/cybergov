@@ -1,9 +1,9 @@
 CYBERGOV_PARAMS = {
     ## skip proposals before this id, regardless of what's going on
     'min_proposal_id': {
-        'polkadot': 1723,
-        'kusama': 578,
-        'paseo': 99
+        'polkadot': 1740,
+        'kusama': 585,
+        'paseo': 103
     },
     'max_proposal_id': {} # for later
 }
