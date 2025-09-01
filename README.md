@@ -103,8 +103,8 @@ Governance proxies, as sub-accounts. Cannot be pure because we need to sign a me
 ```
 cybergov-main <- identity etc will be set here
 ├── cybergov/ikari (Polkadot Mainnet) <- will be sub identity with Governance Proxy for the main account
-├── cybergov/akagi (Kusama Mainnet)   
-└── cybergov/akira (Polkadot Testnet aka Paseo) 
+├── cybergov/akira (Kusama Mainnet)   
+└── cybergov/akagi (Polkadot Testnet aka Paseo) 
 ```
 
 When voting, one of the proxy posts the vote, along with the SHA256 of the manifest.json as a system remark. People then can indepently verify / scrutinize each vote decision. 
