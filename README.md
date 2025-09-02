@@ -7,7 +7,9 @@ LLMs participating in governance decisions. Inspired from Evangelion - Magi syst
 
 - The most important step, as usual, is the data. The data collection, sanitization and archival of the data is fully automated. 
 
-The graph below illustrates roughly how Cybergov works: (insert graph as SVG)
+The graph below illustrates roughly how Cybergov works: 
+
+![CybergovDiagram](./assets/cybergov_v0.jpg)
 
 
 
@@ -20,7 +22,7 @@ Note: In the event of a bug, or required intervention, we have to document thing
 In order to ensure reproducibility, everything should ideally be driven of immutable files. Given that we'll work on files, we go with an S3 compatible storage, storing the files like so:
 
 ```
-s3://your-bucket/proposals/{network}/{proposal_id}/
+s3://.../proposals/{network}/{proposal_id}/
 ├── raw_subsquare_data.json		  # Raw data extracted from Subsquare
 ├── content.md 				      # Cleaned, extracted content for the LLMs
 ├── llm_analyses/           # NEW: Directory for individual LLM outputs
@@ -40,7 +42,7 @@ The vote will be bundled in a utility batch call, with the SHA256(manifest.json)
 For the odd case where a re-vote is required, due to changes or whatever, the current files will be moved to a sub-folder like so:
 
 ```
-s3://your-bucket/proposals/{network}/{proposal_id}/vote_archive_{vote_index}
+s3://.../proposals/{network}/{proposal_id}/vote_archive_{vote_index}
 ├── raw_subsquare_data.json
 ├── content.md
 ├── llm_analyses
@@ -51,7 +53,7 @@ s3://your-bucket/proposals/{network}/{proposal_id}/vote_archive_{vote_index}
 └── vote.json
 ```
 
-The files at the root `s3://your-bucket/proposals/{network}/{proposal_id}/` always point to the latest vote, the other files are left as archive. Re-votes are only triggered if an issue is filed to the repository with a rationale & justification, or in the odd case where a "Please vote Nay" is added to a proposal. Anyone can request a re-vote. The rationale & justification as written in the GitHub issue will not be provided to the LLMs, all the contents of the rationale should be public and available on the proposal page. 
+The files at the root `s3://.../proposals/{network}/{proposal_id}/` always point to the latest vote, the other files are left as archive. Re-votes are only triggered if an issue is filed to the repository with a rationale & justification, or in the odd case where a "Please vote Nay" is added to a proposal. Anyone can request a re-vote. The rationale & justification as written in the GitHub issue will not be provided to the LLMs, all the contents of the rationale should be public and available on the proposal page. 
 
 ## llm_analyses/magi.json
 
@@ -134,11 +136,23 @@ Very smooth sailing:
 - Sidecar: replace with the ones pointing to the AssetHubs
 - Subsquare: need to test and make sure, maybe pause Cybergov for 1 or 2 days after migration once manual checks on Subsquare pass
 
-## TODOs & Ideas
+## TODOs 
+
+- [ ] Fix code duplication, there's a lot going on everywhere tbh, but v0 works 
+- [ ] Clean up constants file, might be some duplication there too. The deployment IDs might not be necessary since we can fetch deployments by name
+- [ ] Tests are manual for now, figure out some test infrastructure that's fully local, maybe unit tests too time permitting, waiting for Paseo People on Vault 
+- [ ] Docs for people to run it themselves on local infrastructure 
+- [ ] Await response from Subsquare team regarding the comment issue
+- [ ] Re-introduce confidence measures
+- [ ] Add the RAW JSON response to the `llm_analyses/*.jsons`
+ 
+
+## Ideas
 
 - "The White Rabbit" provided the idea of scraping AAG YouTube discussions and adding them to the context of the proposals. 
   - A good idea but complicated to automate fully, we'll need to automatically map what is being said to the proper proposals. False positives could be detrimental to data quality. 
 - Add historical context to the proposals (RAG/embeddings), this will be prototyped. Historical data can be provided by Subsquare.
 - Link vote_archive_{index} to to vote_archive_{index-1}, this way we ensure successive runs are linked, and the operator isn't fishing for favorable votes, although the latter would be visible (hash on-chain)
 - Setting up the project, how to etc (note: there seems to be some messup with uv & pip when installing the requirements on the latest versions)
-- ...
+- Pick LLMs from a random list? 
+- Have the SAME LLM compile the DSPy program? 

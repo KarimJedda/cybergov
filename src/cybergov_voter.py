@@ -22,7 +22,8 @@ from utils.constants import (
     COMMENTING_SCHEDULE_DELAY_MINUTES,
     CONVICTION_MAPPING,
     proxy_mapping,
-    voting_power
+    voting_power,
+    ALLOWED_TRACK_IDS
 )
 
 CONVICTION_UNANIMOUS = 6
@@ -47,7 +48,6 @@ def create_and_sign_vote_tx(
     proposal_id: int,
     network: str,
     vote: str,
-    conviction: int,
     remark_text: str,
 ) -> str:
     """
@@ -55,11 +55,6 @@ def create_and_sign_vote_tx(
     and include a system remark.
     """
     logger = get_run_logger()
-
-    if conviction not in CONVICTION_MAPPING:
-        raise ValueError(
-            f"Invalid conviction value '{conviction}'. Must be one of {list(CONVICTION_MAPPING.keys())}"
-        )
 
     network_rpc_block = Secret.load(f"{network}-rpc-url")
     network_rpc_url = network_rpc_block.get()
@@ -77,6 +72,13 @@ def create_and_sign_vote_tx(
                 raise
 
             # The conviction vote will be submitted as a proxy
+            if network == "polkadot":
+                conviction = CONVICTION_MAPPING[1]
+            if network == "kusama":
+                conviction = CONVICTION_MAPPING[2]
+            if network == "paseo": 
+                conviction = CONVICTION_MAPPING[1]
+
             if vote.capitalize() == "Abstain":
                 vote_parameters = {
                     "SplitAbstain": {
@@ -90,7 +92,7 @@ def create_and_sign_vote_tx(
                     "Standard": {
                         "vote": {
                             "aye": True if vote.capitalize() == "Aye" else False,
-                            "conviction": CONVICTION_MAPPING[conviction],
+                            "conviction": conviction,
                         },
                         "balance": voting_power[network]
                     }
@@ -187,6 +189,7 @@ def get_inference_result(
         vote_result: Aye, Nay or Abstain
         conviction: how convinced (if aye or nay)
         remark_text: the hash of vote.json the data that was used to vote
+        vote_data: the JSON so we decide whether we submit the vote or just skip
     """
     logger = get_run_logger()
     vote_file_path = f"{s3_bucket}/proposals/{network}/{proposal_id}/vote.json"
@@ -221,7 +224,7 @@ def get_inference_result(
         logger.info(
             f"Vote for proposal {proposal_id}: {vote_result.value.capitalize()} with conviction {conviction}."
         )
-        return vote_result, conviction, remark_text
+        return vote_result, conviction, remark_text, vote_data
 
     except FileNotFoundError:
         logger.warning(
@@ -303,6 +306,69 @@ async def schedule_comment_task(proposal_id: int, network: str):
             # state=Scheduled(scheduled_time=scheduled_time)
         )
 
+@task
+def should_we_vote(
+    network: str,
+    proposal_id: int,
+    s3_bucket: str,
+    endpoint_url: str,
+    access_key: str,
+    secret_key: str,
+):
+    """
+    TODO Lazy function to check if we should vote, should refactor, I know I know
+
+    Returns:
+        True if we should vote, False otherwise
+    """
+    logger = get_run_logger()
+    subsquare_data_path = f"{s3_bucket}/proposals/{network}/{proposal_id}/raw_subsquare_data.json"
+
+    try:
+        s3 = s3fs.S3FileSystem(
+            key=access_key,
+            secret=secret_key,
+            client_kwargs={
+                "endpoint_url": endpoint_url,
+            },
+        )
+
+        with s3.open(raw_subsquare_data, "rb") as f:
+            vote_data = json.load(f)
+        logger.info(f"Successfully loaded raw subsquare data from {raw_subsquare_data}")
+
+        referendum_track = raw_subsquare_data.get("track", False)
+
+        if not referendum_track:
+            return False 
+
+        try:
+            if int(referendum_track) in ALLOWED_TRACK_IDS:
+                logger.info(
+                    f"Ref track is {referendum_track}, we're go for vote!"
+                )
+                return True 
+
+            logger.info(
+                f"Ref track is {referendum_track}, we're NO go for vote!"
+            )
+            return False 
+        except FileNotFoundError:
+            logger.error(
+                f"Problem getting the referendum track."
+            )
+            return False
+
+    except Exception as e:
+        # Log the root cause for debugging, but don't expose it to the caller.
+        logger.error(
+            f"Failed to process vote raw data."
+        )
+        # Raise a new, clean exception to signal failure without the stack trace.
+        raise RuntimeError(
+            f"Unexpected error processing vote for proposal {proposal_id}."
+        ) from None
+
 
 @flow(name="Vote on Polkadot OpenGov", log_prints=True)
 async def vote_on_opengov_proposal(
@@ -324,6 +390,18 @@ async def vote_on_opengov_proposal(
     access_key = access_key_block.get()
     secret_key = secret_key_block.get()
 
+    should_we_vote = should_we_vote(
+        network=network,
+        proposal_id=proposal_id,
+        s3_bucket=s3_bucket,
+        endpoint_url=endpoint_url,
+        access_key=access_key,
+        secret_key=secret_key,
+    )
+
+    if not should_we_vote:
+        return 
+
     vote_result, conviction, vote_file_hash = get_inference_result(
         network=network,
         proposal_id=proposal_id,
@@ -333,12 +411,12 @@ async def vote_on_opengov_proposal(
         secret_key=secret_key,
     )
 
+
     if all([vote_result, conviction, vote_file_hash]):
         signed_tx = create_and_sign_vote_tx(
             network=network,
             proposal_id=proposal_id,
             vote=vote_result,
-            conviction=conviction,
             remark_text=vote_file_hash,
         )
 

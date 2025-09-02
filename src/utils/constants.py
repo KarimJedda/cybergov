@@ -82,7 +82,17 @@ proxy_mapping = {
 }
 
 voting_power = {
-    "paseo":    3500    * 10**10,
-    "polkadot": 200000  * 10**10,
-    "kusama":   5000    * 10**12
+    "paseo":    1  * 10**10,
+    "polkadot": 1  * 10**10,
+    "kusama":   1  * 10**12
 }
+
+ALLOWED_TRACK_IDS = [
+    2,  # Wish for change
+    11, # Treasurer
+    30, # Small Tipper
+    31, # Big Tipper
+    32, # Small Spender
+    33, # Medium spender
+    34  # Big Spender
+]
