@@ -1,7 +1,21 @@
 import dspy
 from dspy.teleprompt import BootstrapFewShot
-from typing import Dict, Any
+from typing import Dict, Any, Set
+from collections import defaultdict
 
+# TODO shove this in constants
+SUPPORTED_SYMBOLS: Set[str] = {"DOT", "KSM", "USDC", "USDT"}
+NATIVE_SYMBOLS: Dict[str, str] = {
+    "polkadot": "DOT",
+    "kusama": "KSM",
+}
+
+TOKEN_DECIMALS: Dict[str, int] = {
+    "DOT": 10,
+    "KSM": 12,
+    "USDC": 6,
+    "USDT": 6,
+}
 
 class ProposalAnalysisSignature(dspy.Signature):
     """
@@ -175,23 +189,70 @@ def format_analysis_to_markdown(analysis, proposal_cost: str) -> str:
     return "\n".join(md)
 
 
-def parse_proposal_data(proposal_data: Dict[str, Any]) -> Dict[str, str]:
-    """Helper to extract and format data from the input JSON dictionary."""
+def parse_proposal_data_with_units(proposal_data: Dict[str, Any], network: str) -> Dict[str, str]:
+    """
+    Extracts and formats data from a proposal JSON, converting raw integer "units"
+    from the API into standard decimal amounts. It only processes a specific list
+    of supported assets (DOT, KSM, USDC, USDT).
+
+    Args:
+        proposal_data: The raw dictionary containing proposal information.
+        network: The name of the network (e.g., 'polkadot', 'kusama') to determine
+                 the native token for zero-cost proposals.
+
+    Returns:
+        A dictionary with formatted 'title', 'content', and 'cost' strings.
+    """
     title = proposal_data.get("title", "No Title Provided")
     content = proposal_data.get("content", "No Content Provided")
-    total_spend, symbol = 0.0, "Tokens"
-    if "allSpends" in proposal_data and proposal_data["allSpends"]:
-        spends = proposal_data["allSpends"]
-        if isinstance(spends, list) and len(spends) > 0:
-            symbol = spends[0].get("symbol", "Tokens")
-            for spend in spends:
-                total_spend += float(spend.get("amount", 0))
-    cost_str = f"{total_spend:.2f} {symbol}" if total_spend > 0 else "0 DOT"
+
+    aggregated_spends = defaultdict(float)
+    
+    spends = proposal_data.get("allSpends")
+
+    if isinstance(spends, list):
+        for spend in spends:
+            if not isinstance(spend, dict):
+                continue
+
+            symbol = spend.get("symbol")
+            if not symbol or symbol.upper() not in SUPPORTED_SYMBOLS:
+                continue
+
+            normalized_symbol = symbol.upper()
+            decimals = TOKEN_DECIMALS.get(normalized_symbol)
+            
+            # This check ensures our configuration is consistent.
+            if decimals is None:
+                continue
+
+            try:
+                # API can return a large number as an integer or string.
+                raw_units = float(spend.get("amount", 0))
+                
+                # Convert from the smallest unit to the standard decimal representation.
+                converted_amount = raw_units / (10 ** decimals)
+                
+                aggregated_spends[normalized_symbol] += converted_amount
+            except (ValueError, TypeError):
+                # Ignore if the amount is not a valid number.
+                continue
+
+    if not aggregated_spends:
+        native_symbol = NATIVE_SYMBOLS.get(network.lower(), "Tokens")
+        cost_str = f"0.00 {native_symbol}"
+    else:
+        cost_parts = [
+            f"{total:.2f} {symbol}"
+            for symbol, total in sorted(aggregated_spends.items())
+        ]
+        cost_str = ", ".join(cost_parts)
+
     return {"title": title, "content": content, "cost": cost_str}
 
 
 def generate_content_for_magis(
-    proposal_data: Dict[str, Any], logger, openrouter_model, openrouter_api_key
+    proposal_data: Dict[str, Any], logger, openrouter_model, openrouter_api_key, network
 ):
     local_lm = dspy.LM(
         model=openrouter_model,
@@ -209,7 +270,7 @@ def generate_content_for_magis(
     compiled_augmenter = teleprompter.compile(augmenter, trainset=examples)
     logger.info("DSPY---> DSPy Compilation Complete")
 
-    parsed_data = parse_proposal_data(proposal_data)
+    parsed_data = parse_proposal_data_with_units(proposal_data, network)
 
     analysis = compiled_augmenter(
         proposal_title=parsed_data["title"],

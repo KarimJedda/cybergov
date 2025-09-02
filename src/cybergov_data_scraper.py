@@ -331,6 +331,7 @@ def generate_prompt_content(network: str, proposal_id: int):
             logger=logger,
             openrouter_model="openai/gpt-4o",  # TODO make this a variable later
             openrouter_api_key=openrouter_api_key,
+            network=network
         )
 
         # Write the new content.md file
@@ -405,6 +406,18 @@ async def fetch_proposal_data(network: str, proposal_id: int):
 
 
 if __name__ == "__main__":
+    import sys
     import asyncio
 
-    asyncio.run(fetch_proposal_data(network="paseo", proposal_id=100))
+    if len(sys.argv) != 3:
+        print("Usage: python cybergov_data_scraper.py <network> <proposal_id>")
+        sys.exit(1)
+
+    network_arg = sys.argv[1]
+    proposal_id_arg = int(sys.argv[2])
+
+    asyncio.run(
+        fetch_proposal_data(
+            network=network_arg, 
+            proposal_id=proposal_id_arg)
+    )

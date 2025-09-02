@@ -136,6 +136,23 @@ Very smooth sailing:
 - Sidecar: replace with the ones pointing to the AssetHubs
 - Subsquare: need to test and make sure, maybe pause Cybergov for 1 or 2 days after migration once manual checks on Subsquare pass
 
+
+## Operator manual 
+
+
+Only for manual interventions
+
+```
+cd src/
+
+# step 1
+python cybergov_data_scraper.py <network> proposal_id
+
+# step 2
+python cybergov_data_scraper.py <network> proposal_id
+```
+
+
 ## TODOs 
 
 - [ ] Cleanup readme mess & add issue templates (for re-vote requests, etc)
@@ -147,6 +164,7 @@ Very smooth sailing:
 - [ ] Re-introduce confidence measures
 - [ ] Add the RAW JSON response to the `llm_analyses/*.jsons`
 - [ ] Load system prompts from files to let peopel edit them 
+- [ ] The comment we leave is meh, it should point to a nice generated page with the justifications (like teased in the Tweet)
  
 
 ## Ideas
