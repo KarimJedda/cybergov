@@ -138,6 +138,7 @@ Very smooth sailing:
 
 ## TODOs 
 
+- [ ] Cleanup readme mess & add issue templates (for re-vote requests, etc)
 - [ ] Fix code duplication, there's a lot going on everywhere tbh, but v0 works 
 - [ ] Clean up constants file, might be some duplication there too. The deployment IDs might not be necessary since we can fetch deployments by name
 - [ ] Tests are manual for now, figure out some test infrastructure that's fully local, maybe unit tests too time permitting, waiting for Paseo People on Vault 
@@ -145,6 +146,7 @@ Very smooth sailing:
 - [ ] Await response from Subsquare team regarding the comment issue
 - [ ] Re-introduce confidence measures
 - [ ] Add the RAW JSON response to the `llm_analyses/*.jsons`
+- [ ] Load system prompts from files to let peopel edit them 
  
 
 ## Ideas

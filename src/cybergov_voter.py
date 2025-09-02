@@ -333,11 +333,11 @@ def should_we_vote(
             },
         )
 
-        with s3.open(raw_subsquare_data, "rb") as f:
+        with s3.open(subsquare_data_path, "rb") as f:
             vote_data = json.load(f)
-        logger.info(f"Successfully loaded raw subsquare data from {raw_subsquare_data}")
+        logger.info(f"Successfully loaded raw subsquare data from {subsquare_data_path}")
 
-        referendum_track = raw_subsquare_data.get("track", False)
+        referendum_track = vote_data.get("track", False)
 
         if not referendum_track:
             return False 
@@ -355,14 +355,14 @@ def should_we_vote(
             return False 
         except FileNotFoundError:
             logger.error(
-                f"Problem getting the referendum track."
+                "Problem getting the referendum track."
             )
             return False
 
-    except Exception as e:
+    except Exception:
         # Log the root cause for debugging, but don't expose it to the caller.
         logger.error(
-            f"Failed to process vote raw data."
+            "Failed to process vote raw data."
         )
         # Raise a new, clean exception to signal failure without the stack trace.
         raise RuntimeError(
@@ -390,7 +390,7 @@ async def vote_on_opengov_proposal(
     access_key = access_key_block.get()
     secret_key = secret_key_block.get()
 
-    should_we_vote = should_we_vote(
+    proceed_with_vote = should_we_vote(
         network=network,
         proposal_id=proposal_id,
         s3_bucket=s3_bucket,
@@ -399,7 +399,7 @@ async def vote_on_opengov_proposal(
         secret_key=secret_key,
     )
 
-    if not should_we_vote:
+    if not proceed_with_vote:
         return 
 
     vote_result, conviction, vote_file_hash = get_inference_result(
@@ -430,7 +430,7 @@ async def vote_on_opengov_proposal(
         )
 
         logger.info(
-            f"Proceeding to posting comment..."
+            "Proceeding to posting comment..."
         )
 
         is_already_scheduled = await check_if_commenting_already_scheduled(

@@ -22,23 +22,19 @@ def generate_summary_rationale(votes_breakdown, proposal_id, network, analysis_f
     nay_votes = sum(1 for v in votes_breakdown if v['decision'].upper() == 'NAY')
     abstain_votes = sum(1 for v in votes_breakdown if v['decision'].upper() == 'ABSTAIN')
 
-    balthazar_rationale, balthazar_decision = None, None
-    melchior_rationale, melchior_decision = None, None
-    caspar_rationale, caspar_decision = None, None
-
     for analysis_file in analysis_files:
         with open(analysis_file, 'r') as f:
             data = json.load(f)
         
         # Use the .name attribute of the Path object for comparison
         if analysis_file.name == 'balthazar.json':
-            balthazar_rationale = data['rationale']
+            # balthazar_rationale = data['rationale']
             balthazar_decision = data['decision']
         elif analysis_file.name == 'melchior.json':
-            melchior_rationale = data['rationale']
+            # melchior_rationale = data['rationale']
             melchior_decision = data['decision']
         elif analysis_file.name == 'caspar.json':
-            caspar_rationale = data['rationale']
+            # caspar_rationale = data['rationale']
             caspar_decision = data['decision']
 
     ## TODO get the vote number in here to inform people that this might not be the first vote (old links will go stale)
@@ -50,7 +46,7 @@ def generate_summary_rationale(votes_breakdown, proposal_id, network, analysis_f
 <ul>
     <li>Balthazar voted <a href="https://cybergov.b-cdn.net/proposals/{network}/{proposal_id}/llm_analyses/balthazar.json">{balthazar_decision}</a></li>
     <li>Melchior voted <a href="https://cybergov.b-cdn.net/proposals/{network}/{proposal_id}/llm_analyses/melchior.json">{melchior_decision}</a></li>
-    <li>Caspar voted <a href="https://cybergov.b-cdn.net/proposals/{network}/{proposal_id}/llm_analyses/balthazar.json">{balthazar_decision}</a></li>
+    <li>Caspar voted <a href="https://cybergov.b-cdn.net/proposals/{network}/{proposal_id}/llm_analyses/balthazar.json">{caspar_decision}</a></li>
 </ul>
 <p>In case of questions, remarks or contributions, please refer to:</p>
 <ul>
