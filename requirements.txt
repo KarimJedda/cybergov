@@ -1,4 +1,4 @@
 s3fs==2025.7.0
 httpx==0.28.1
 substrate-interface==1.7.11
-dspy==3.0.2
+dspy==3.0.3
