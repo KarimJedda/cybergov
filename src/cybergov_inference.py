@@ -265,11 +265,8 @@ async def github_action_trigger_and_monitor(proposal_id: int, network: str):
             "Magi Inference was successful but vote is already scheduled, nothing to do."
         )
 
+
 if __name__ == "__main__":
     import asyncio
-    asyncio.run(
-        github_action_trigger_and_monitor(
-            network="paseo", 
-            proposal_id=100
-        )
-    )
+
+    asyncio.run(github_action_trigger_and_monitor(network="paseo", proposal_id=100))

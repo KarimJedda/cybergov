@@ -2,7 +2,7 @@ import sys
 import json
 import datetime
 import s3fs
-import os 
+import os
 
 from utils.helpers import setup_logging, get_config_from_env, hash_file
 from utils.run_magi_eval import run_single_inference, setup_compiled_agent
@@ -12,30 +12,34 @@ from collections import Counter
 logger = setup_logging()
 
 
-def generate_summary_rationale(votes_breakdown, proposal_id, network, analysis_files) -> str:
+def generate_summary_rationale(
+    votes_breakdown, proposal_id, network, analysis_files
+) -> str:
     """
     Placeholder for the LLM call to generate a summary rationale.
     """
     logger.info("--> Generatign simple concatenated rationale...")
     # This would be a real LLM call in production.
-    aye_votes = sum(1 for v in votes_breakdown if v['decision'].upper() == 'AYE')
-    nay_votes = sum(1 for v in votes_breakdown if v['decision'].upper() == 'NAY')
-    abstain_votes = sum(1 for v in votes_breakdown if v['decision'].upper() == 'ABSTAIN')
+    aye_votes = sum(1 for v in votes_breakdown if v["decision"].upper() == "AYE")
+    nay_votes = sum(1 for v in votes_breakdown if v["decision"].upper() == "NAY")
+    abstain_votes = sum(
+        1 for v in votes_breakdown if v["decision"].upper() == "ABSTAIN"
+    )
 
     for analysis_file in analysis_files:
-        with open(analysis_file, 'r') as f:
+        with open(analysis_file, "r") as f:
             data = json.load(f)
-        
+
         # Use the .name attribute of the Path object for comparison
-        if analysis_file.name == 'balthazar.json':
+        if analysis_file.name == "balthazar.json":
             # balthazar_rationale = data['rationale']
-            balthazar_decision = data['decision']
-        elif analysis_file.name == 'melchior.json':
+            balthazar_decision = data["decision"]
+        elif analysis_file.name == "melchior.json":
             # melchior_rationale = data['rationale']
-            melchior_decision = data['decision']
-        elif analysis_file.name == 'caspar.json':
+            melchior_decision = data["decision"]
+        elif analysis_file.name == "caspar.json":
             # caspar_rationale = data['rationale']
-            caspar_decision = data['decision']
+            caspar_decision = data["decision"]
 
     ## TODO get the vote number in here to inform people that this might not be the first vote (old links will go stale)
     # requires a way to edit old proposal comments, maybe for later
@@ -68,37 +72,45 @@ def perform_preflight_checks(s3, proposal_s3_path, local_workspace):
     # 1. Check for raw_subsquare.json in S3
     raw_subsquare_s3_path = f"{proposal_s3_path}/raw_subsquare_data.json"
     if not s3.exists(raw_subsquare_s3_path):
-        raise FileNotFoundError(f"Required file not found in S3: {raw_subsquare_s3_path}")
+        raise FileNotFoundError(
+            f"Required file not found in S3: {raw_subsquare_s3_path}"
+        )
 
-    with s3.open(raw_subsquare_s3_path, 'r') as f:
+    with s3.open(raw_subsquare_s3_path, "r") as f:
         raw_data = json.load(f)
-    required_attrs = ['referendumIndex', 'title', 'content', 'proposer']
+    required_attrs = ["referendumIndex", "title", "content", "proposer"]
     if not all(attr in raw_data for attr in required_attrs):
-        raise ValueError(f"raw_subsquare.json is missing one of the required attributes: {required_attrs}")
-    
+        raise ValueError(
+            f"raw_subsquare.json is missing one of the required attributes: {required_attrs}"
+        )
+
     # Download, hash, and record raw_subsquare.json
     local_raw_path = local_workspace / "raw_subsquare.json"
     s3.download(raw_subsquare_s3_path, str(local_raw_path))
-    manifest_inputs.append({
-        "logical_name": "raw_subsquare_data",
-        "s3_path": raw_subsquare_s3_path,
-        "hash": hash_file(local_raw_path)
-    })
+    manifest_inputs.append(
+        {
+            "logical_name": "raw_subsquare_data",
+            "s3_path": raw_subsquare_s3_path,
+            "hash": hash_file(local_raw_path),
+        }
+    )
     logger.info("✅ raw_subsquare.json found and validated.")
 
     # 2. Check for content-*.md in S3
     content_md_s3_path = f"{proposal_s3_path}/content.md"
     if not s3.exists(content_md_s3_path):
         raise FileNotFoundError(f"Required file not found in S3: {content_md_s3_path}")
-    
+
     # Download, hash, and record content.md
     local_content_path = local_workspace / Path(content_md_s3_path).name
     s3.download(content_md_s3_path, str(local_content_path))
-    manifest_inputs.append({
-        "logical_name": "content_markdown",
-        "s3_path": content_md_s3_path,
-        "hash": hash_file(local_content_path)
-    })
+    manifest_inputs.append(
+        {
+            "logical_name": "content_markdown",
+            "s3_path": content_md_s3_path,
+            "hash": hash_file(local_content_path),
+        }
+    )
     logger.info(f"✅ {Path(content_md_s3_path).name} found.")
 
     # 3. Check for local system prompts
@@ -107,9 +119,11 @@ def perform_preflight_checks(s3, proposal_s3_path, local_workspace):
     for model in magi_models:
         prompt_file = prompt_dir / f"{model}_system_prompt.md"
         if not prompt_file.exists():
-            raise FileNotFoundError(f"Required local system prompt not found: {prompt_file}")
+            raise FileNotFoundError(
+                f"Required local system prompt not found: {prompt_file}"
+            )
     logger.info("✅ All local system prompts found.")
-    
+
     logger.info("Pre-flight checks passed.")
     return manifest_inputs, local_content_path, magi_models
 
@@ -136,12 +150,13 @@ def run_magi_evaluations(magi_models_list, local_workspace):
         "caspar": "openrouter/x-ai/grok-code-fast-1",
     }
 
-
     proposal_content_path = local_workspace / "content.md"
     if not proposal_content_path.exists():
-        raise FileNotFoundError(f"Proposal content not found at {proposal_content_path}")
+        raise FileNotFoundError(
+            f"Proposal content not found at {proposal_content_path}"
+        )
     proposal_text = proposal_content_path.read_text()
-    
+
     output_files = []
     for magi_key in magi_models_list:
         if magi_key not in magi_llms:
@@ -159,7 +174,9 @@ def run_magi_evaluations(magi_models_list, local_workspace):
 
         # Step B: Run a single inference with the newly compiled agent
         logger.info(f"  Running inference for {magi_key}...")
-        prediction = run_single_inference(compiled_agent, personality_prompt, proposal_text)
+        prediction = run_single_inference(
+            compiled_agent, personality_prompt, proposal_text
+        )
 
         # Step C: Write the result to a JSON file
         output_path = analysis_dir / f"{magi_key}.json"
@@ -169,13 +186,15 @@ def run_magi_evaluations(magi_models_list, local_workspace):
             "decision": prediction.vote.strip(),
             "confidence": None,
             "rationale": prediction.rationale.strip(),
-            "raw_api_response": {}
+            "raw_api_response": {},
         }
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             json.dump(data, f, indent=2)
-        
+
         output_files.append(output_path)
-        logger.info(f"✅ Generated analysis for {magi_key} and saved to {output_path.name}")
+        logger.info(
+            f"✅ Generated analysis for {magi_key} and saved to {output_path.name}"
+        )
 
     return output_files
 
@@ -188,16 +207,18 @@ def consolidate_vote(analysis_files, local_workspace, proposal_id, network):
     votes_breakdown = []
     decisions = []
     for analysis_file in analysis_files:
-        with open(analysis_file, 'r') as f:
+        with open(analysis_file, "r") as f:
             data = json.load(f)
         model_name = analysis_file.stem
-        votes_breakdown.append({
-            "model": model_name,
-            "decision": data["decision"],
-            "confidence": data["confidence"]
-        })
+        votes_breakdown.append(
+            {
+                "model": model_name,
+                "decision": data["decision"],
+                "confidence": data["confidence"],
+            }
+        )
         decisions.append(data["decision"])
-    
+
     # Determine final decision
     decision_counts = Counter(decisions)
     final_decision = "ABSTAIN"
@@ -205,23 +226,29 @@ def consolidate_vote(analysis_files, local_workspace, proposal_id, network):
     if decision_counts:
         most_common = decision_counts.most_common(1)
         # Check for a clear majority, otherwise abstain
-        if len(decision_counts) == 1 or decision_counts.most_common(2)[0][1] > decision_counts.most_common(2)[1][1]:
+        if (
+            len(decision_counts) == 1
+            or decision_counts.most_common(2)[0][1]
+            > decision_counts.most_common(2)[1][1]
+        ):
             final_decision = most_common[0][0]
             is_conclusive = True
-            
+
     is_unanimous = len(set(decisions)) == 1 if decisions else False
-    
+
     vote_data = {
         "timestamp_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "is_conclusive": is_conclusive,
         "final_decision": final_decision,
         "is_unanimous": is_unanimous,
-        "summary_rationale": generate_summary_rationale(votes_breakdown, proposal_id, network, analysis_files),
-        "votes_breakdown": votes_breakdown
+        "summary_rationale": generate_summary_rationale(
+            votes_breakdown, proposal_id, network, analysis_files
+        ),
+        "votes_breakdown": votes_breakdown,
     }
-    
+
     vote_path = local_workspace / "vote.json"
-    with open(vote_path, 'w') as f:
+    with open(vote_path, "w") as f:
         json.dump(vote_data, f, indent=2)
     logger.info(f"✅ Vote consolidated into {vote_path}.")
     return vote_path
@@ -231,28 +258,28 @@ def main():
     logger = setup_logging()
     logger.info("CyberGov V0 ... initializing.")
     last_good_step = "initializing"
-    
+
     try:
         config = get_config_from_env()
         proposal_id = config["PROPOSAL_ID"]
         network = config["NETWORK"]
         s3_bucket = config["S3_BUCKET_NAME"]
-        
+
         s3 = s3fs.S3FileSystem(
             key=config["S3_ACCESS_KEY_ID"],
             secret=config["S3_ACCESS_KEY_SECRET"],
             client_kwargs={"endpoint_url": config["S3_ENDPOINT_URL"]},
             asynchronous=False,
-            loop=None  # <-- This is the key addition
+            loop=None,  # <-- This is the key addition
         )
-        
+
         proposal_s3_path = f"{s3_bucket}/proposals/{network}/{proposal_id}"
         logger.info(f"Working with S3 path: {proposal_s3_path}")
-        
+
         # Create a local workspace for processing
         local_workspace = Path("workspace")
         local_workspace.mkdir(exist_ok=True)
-        
+
         last_good_step = "s3_and_workspace_setup"
 
         # Step 1: Check inputs, download them, and record their hashes for the manifest
@@ -266,35 +293,39 @@ def main():
         last_good_step = "magi_evaluation"
 
         # Step 3: Consolidate the vote
-        local_vote_file = consolidate_vote(local_analysis_files, local_workspace, proposal_id, network)
+        local_vote_file = consolidate_vote(
+            local_analysis_files, local_workspace, proposal_id, network
+        )
         last_good_step = "vote_consolidation"
 
         # Step 4: Generate manifest and upload all outputs
         logger.info("04 - Attesting, signing, and uploading outputs...")
         manifest_outputs = []
         files_to_process = local_analysis_files + [local_vote_file]
-        
+
         for local_file in files_to_process:
             file_hash = hash_file(local_file)
-            
+
             # Determine S3 path
             if local_file.parent.name == "llm_analyses":
                 s3_filename = f"llm_analyses/{local_file.stem}.json"
             else:
                 s3_filename = f"{local_file.stem}.json"
-            
+
             final_s3_path = f"{proposal_s3_path}/{s3_filename}"
-            
+
             # Upload the file
             s3.upload(str(local_file), final_s3_path)
             logger.info(f"  📤 Uploaded {local_file.name} to {final_s3_path}")
-            
+
             # Add entry to manifest outputs
-            manifest_outputs.append({
-                "logical_name": local_file.stem,
-                "s3_path": final_s3_path,
-                "hash": file_hash
-            })
+            manifest_outputs.append(
+                {
+                    "logical_name": local_file.stem,
+                    "s3_path": final_s3_path,
+                    "hash": file_hash,
+                }
+            )
 
         # Build the final manifest
         manifest = {
@@ -303,16 +334,18 @@ def main():
                 "github_repository": os.getenv("GITHUB_REPOSITORY", "N/A"),
                 "github_run_id": os.getenv("GITHUB_RUN_ID", "N/A"),
                 "github_commit_sha": os.getenv("GITHUB_SHA", "N/A"),
-                "timestamp_utc": datetime.datetime.now(datetime.timezone.utc).isoformat()
+                "timestamp_utc": datetime.datetime.now(
+                    datetime.timezone.utc
+                ).isoformat(),
             },
             "inputs": manifest_inputs,
-            "outputs": manifest_outputs
+            "outputs": manifest_outputs,
         }
-        
+
         manifest_path = local_workspace / "manifest.json"
-        with open(manifest_path, 'w') as f:
+        with open(manifest_path, "w") as f:
             json.dump(manifest, f, indent=2)
-        
+
         # Upload manifest and signature with stable names
         s3.upload(str(manifest_path), f"{proposal_s3_path}/manifest.json")
         logger.info("✅ Uploaded manifest.")

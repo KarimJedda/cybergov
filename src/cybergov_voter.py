@@ -23,25 +23,30 @@ from utils.constants import (
     CONVICTION_MAPPING,
     proxy_mapping,
     voting_power,
-    ALLOWED_TRACK_IDS
+    ALLOWED_TRACK_IDS,
 )
 
 CONVICTION_UNANIMOUS = 6
 CONVICTION_DEFAULT = 1
+
 
 class VoteResult(str, Enum):
     AYE = "AYE"
     NAY = "NAY"
     ABSTAIN = "ABSTAIN"
 
+
 def get_remark_hash(s3_client: s3fs.S3FileSystem, file_path: str) -> str:
     """Reads a JSON file from S3, and returns its canonical SHA256 hash."""
     with s3_client.open(file_path, "rb") as f:
         manifest_data = json.load(f)
-    
+
     # To hash consistently, dump the dict to a string with sorted keys, then encode to bytes.
-    canonical_manifest = json.dumps(manifest_data, sort_keys=True, separators=(',', ':')).encode("utf-8")
+    canonical_manifest = json.dumps(
+        manifest_data, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
     return hashlib.sha256(canonical_manifest).hexdigest()
+
 
 @task
 def create_and_sign_vote_tx(
@@ -66,7 +71,9 @@ def create_and_sign_vote_tx(
             try:
                 mnemonic = Secret.load(f"{network}-cybergov-mnemonic").get()
                 keypair = Keypair.create_from_mnemonic(mnemonic)
-                logger.info(f"Loaded keypair for address: {keypair.ss58_address}  / {proxy_mapping[network]['proxy']} ")
+                logger.info(
+                    f"Loaded keypair for address: {keypair.ss58_address}  / {proxy_mapping[network]['proxy']} "
+                )
             except ValueError:
                 logger.error(f"Could not load '{network}-voter-mnemonic' Secret block.")
                 raise
@@ -76,15 +83,15 @@ def create_and_sign_vote_tx(
                 conviction = CONVICTION_MAPPING[1]
             if network == "kusama":
                 conviction = CONVICTION_MAPPING[2]
-            if network == "paseo": 
+            if network == "paseo":
                 conviction = CONVICTION_MAPPING[1]
 
             if vote.capitalize() == "Abstain":
                 vote_parameters = {
                     "SplitAbstain": {
-                      "aye": 0,
-                      "nay": 0,
-                      "abstain": voting_power[network]
+                        "aye": 0,
+                        "nay": 0,
+                        "abstain": voting_power[network],
                     }
                 }
             else:
@@ -94,7 +101,7 @@ def create_and_sign_vote_tx(
                             "aye": True if vote.capitalize() == "Aye" else False,
                             "conviction": conviction,
                         },
-                        "balance": voting_power[network]
+                        "balance": voting_power[network],
                     }
                 }
             vote_call = substrate.compose_call(
@@ -107,13 +114,13 @@ def create_and_sign_vote_tx(
                 call_module="Proxy",
                 call_function="proxy",
                 call_params={
-                    "real": proxy_mapping[network]['main'],
+                    "real": proxy_mapping[network]["main"],
                     "force_proxy_type": None,
-                    "call": vote_call
-                }
+                    "call": vote_call,
+                },
             )
 
-            # The system remark will be submitted regularly 
+            # The system remark will be submitted regularly
             remark_call = substrate.compose_call(
                 call_module="System",
                 call_function="remark_with_event",
@@ -306,6 +313,7 @@ async def schedule_comment_task(proposal_id: int, network: str):
             # state=Scheduled(scheduled_time=scheduled_time)
         )
 
+
 @task
 def should_we_vote(
     network: str,
@@ -322,7 +330,9 @@ def should_we_vote(
         True if we should vote, False otherwise
     """
     logger = get_run_logger()
-    subsquare_data_path = f"{s3_bucket}/proposals/{network}/{proposal_id}/raw_subsquare_data.json"
+    subsquare_data_path = (
+        f"{s3_bucket}/proposals/{network}/{proposal_id}/raw_subsquare_data.json"
+    )
 
     try:
         s3 = s3fs.S3FileSystem(
@@ -335,35 +345,29 @@ def should_we_vote(
 
         with s3.open(subsquare_data_path, "rb") as f:
             vote_data = json.load(f)
-        logger.info(f"Successfully loaded raw subsquare data from {subsquare_data_path}")
+        logger.info(
+            f"Successfully loaded raw subsquare data from {subsquare_data_path}"
+        )
 
         referendum_track = vote_data.get("track", False)
 
         if not referendum_track:
-            return False 
+            return False
 
         try:
             if int(referendum_track) in ALLOWED_TRACK_IDS:
-                logger.info(
-                    f"Ref track is {referendum_track}, we're go for vote!"
-                )
-                return True 
+                logger.info(f"Ref track is {referendum_track}, we're go for vote!")
+                return True
 
-            logger.info(
-                f"Ref track is {referendum_track}, we're NO go for vote!"
-            )
-            return False 
+            logger.info(f"Ref track is {referendum_track}, we're NO go for vote!")
+            return False
         except FileNotFoundError:
-            logger.error(
-                "Problem getting the referendum track."
-            )
+            logger.error("Problem getting the referendum track.")
             return False
 
     except Exception:
         # Log the root cause for debugging, but don't expose it to the caller.
-        logger.error(
-            "Failed to process vote raw data."
-        )
+        logger.error("Failed to process vote raw data.")
         # Raise a new, clean exception to signal failure without the stack trace.
         raise RuntimeError(
             f"Unexpected error processing vote for proposal {proposal_id}."
@@ -400,7 +404,7 @@ async def vote_on_opengov_proposal(
     )
 
     if not proceed_with_vote:
-        return 
+        return
 
     vote_result, conviction, vote_file_hash = get_inference_result(
         network=network,
@@ -410,7 +414,6 @@ async def vote_on_opengov_proposal(
         access_key=access_key,
         secret_key=secret_key,
     )
-
 
     if all([vote_result, conviction, vote_file_hash]):
         signed_tx = create_and_sign_vote_tx(
@@ -429,9 +432,7 @@ async def vote_on_opengov_proposal(
             f"✅ Successfully processed vote for proposal {proposal_id}. View transaction at: https://{network}.subscan.io/extrinsic/{tx_hash} or https://assethub-{network}.subscan.io/extrinsic/{tx_hash}"
         )
 
-        logger.info(
-            "Proceeding to posting comment..."
-        )
+        logger.info("Proceeding to posting comment...")
 
         is_already_scheduled = await check_if_commenting_already_scheduled(
             proposal_id=proposal_id, network=network
@@ -444,11 +445,8 @@ async def vote_on_opengov_proposal(
             f"Unexpected error processing vote for proposal {proposal_id}."
         ) from None
 
+
 if __name__ == "__main__":
     import asyncio
-    asyncio.run(
-        vote_on_opengov_proposal(
-            network="paseo", 
-            proposal_id=100
-        )
-    )
+
+    asyncio.run(vote_on_opengov_proposal(network="paseo", proposal_id=100))

@@ -251,20 +251,26 @@ def archive_previous_run(network: str, proposal_id: int):
         vote_archive_index += 1
 
     # 3. Identify items to move (everything except existing 'vote_archive_' folders)
-    items_to_move = [item for item in existing_contents if not item.split('/')[-1].startswith('vote_archive_')]
+    items_to_move = [
+        item
+        for item in existing_contents
+        if not item.split("/")[-1].startswith("vote_archive_")
+    ]
 
     # 4. Move the identified items into the new archive folder
     if items_to_move:
         logger.info(f"Moving {len(items_to_move)} items to {archive_path}...")
         for source_path in items_to_move:
             # Extract the base name (file or folder name) from the source path
-            base_name = source_path.split('/')[-1]
+            base_name = source_path.split("/")[-1]
             destination_path = f"{archive_path}/{base_name}"
             logger.info(f"Moving {source_path} -> {destination_path}")
             s3.mv(source_path, destination_path, recursive=True)
         logger.info("✅ Move operation completed.")
     else:
-        logger.info("No new items to archive (only found existing vote_archive_* folders).")
+        logger.info(
+            "No new items to archive (only found existing vote_archive_* folders)."
+        )
 
 
 @task(name="Enrich data with on-chain infos and misc stuff")
@@ -274,7 +280,7 @@ def enrich_proposal_data(network: str, proposal_id: int):
     # does the proposer have a registered identity?
     # how many proposals has this identity submitted?
     # etc
-    pass 
+    pass
 
 
 @task(name="Enrich data with on-chain infos and misc stuff")
@@ -286,7 +292,7 @@ def generate_prompt_content(network: str, proposal_id: int):
     logger = get_run_logger()
     logger.info(f"Starting content generation for {network} proposal {proposal_id}.")
 
-    # TODO clean up all this S3 mess 
+    # TODO clean up all this S3 mess
     s3_bucket_block = String.load("scaleway-bucket-name")
     endpoint_block = String.load("scaleway-s3-endpoint-url")
     access_key_block = Secret.load("scaleway-write-access-key-id")
@@ -299,16 +305,12 @@ def generate_prompt_content(network: str, proposal_id: int):
     secret_key = secret_key_block.get()
     openrouter_api_key = openrouter_api_key_block.get()
 
-
     input_s3_path = (
         f"{s3_bucket}/proposals/{network}/{proposal_id}/raw_subsquare_data.json"
     )
-    output_s3_path = (
-        f"{s3_bucket}/proposals/{network}/{proposal_id}/content.md"
-    )
+    output_s3_path = f"{s3_bucket}/proposals/{network}/{proposal_id}/content.md"
     logger.info(f"Reading from: {input_s3_path}")
     logger.info(f"Writing to: {output_s3_path}")
-
 
     try:
         s3 = s3fs.S3FileSystem(
@@ -321,29 +323,32 @@ def generate_prompt_content(network: str, proposal_id: int):
 
         logger.info(f"Reading source file {input_s3_path}...")
         with s3.open(input_s3_path, "r") as f:
-               input_data = json.load(f)
+            input_data = json.load(f)
         logger.info("✅ Source data read successfully.")
 
         content_md = generate_content_for_magis(
             proposal_data=input_data,
             logger=logger,
-            openrouter_model="openai/gpt-4o", # TODO make this a variable later
-            openrouter_api_key=openrouter_api_key
+            openrouter_model="openai/gpt-4o",  # TODO make this a variable later
+            openrouter_api_key=openrouter_api_key,
         )
 
         # Write the new content.md file
         logger.info(f"Writing markdown to {output_s3_path}...")
         with s3.open(output_s3_path, "w") as f:
             f.write(content_md)
-        
+
         logger.info(f"✅ Success! Prompt content saved to {output_s3_path}")
 
     except FileNotFoundError:
-        logger.error(f"❌ Input file not found at {input_s3_path}. The previous task may have failed.")
+        logger.error(
+            f"❌ Input file not found at {input_s3_path}. The previous task may have failed."
+        )
         raise
     except Exception as e:
         logger.error(f"❌ An unexpected error occurred during S3 operations: {e}")
         raise
+
 
 @flow(name="Fetch Proposal Data")
 async def fetch_proposal_data(network: str, proposal_id: int):
@@ -401,9 +406,5 @@ async def fetch_proposal_data(network: str, proposal_id: int):
 
 if __name__ == "__main__":
     import asyncio
-    asyncio.run(
-        fetch_proposal_data(
-            network="paseo", 
-            proposal_id=100
-        )
-    )
+
+    asyncio.run(fetch_proposal_data(network="paseo", proposal_id=100))

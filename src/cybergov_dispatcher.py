@@ -154,7 +154,7 @@ async def check_if_already_scheduled(proposal_id: int, network: str) -> bool:
                     type=FlowRunFilterStateType(
                         any_=[
                             StateType.RUNNING,
-                            StateType.COMPLETED, # If automatically triggered, we don't re-scape. Gotta be done manually. 
+                            StateType.COMPLETED,  # If automatically triggered, we don't re-scape. Gotta be done manually.
                             StateType.PENDING,
                             StateType.SCHEDULED,
                         ]
@@ -257,9 +257,5 @@ async def cybergov_dispatcher_flow(
 
 if __name__ == "__main__":
     import asyncio
-    asyncio.run(
-        cybergov_dispatcher_flow(
-            network="paseo", 
-            proposal_id=102
-        )
-    )
+
+    asyncio.run(cybergov_dispatcher_flow(network="paseo", proposal_id=102))
