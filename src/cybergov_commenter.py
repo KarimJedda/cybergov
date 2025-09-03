@@ -60,11 +60,11 @@ def get_infos_for_substrate_comment(
         logger.info(f"Successfully loaded vote data from {vote_file_path}")
 
         # Assuming the vote decision is stored under the key 'vote_decision'
-        vote_result = vote_data.get("vote_decision")
+        # vote_result = vote_data.get("vote_decision")
         comment = vote_data.get("summary_rationale", "")
 
-        logger.info(f"Vote result for {proposal_id} on {network}: {vote_result}")
-        logger.info(f"Comment for {proposal_id} on {network}: {comment}.")
+        # logger.info(f"Vote result for {proposal_id} on {network}")
+        # logger.info(f"Comment for {proposal_id} on {network}: {comment}.")
 
         return comment, proposal_height
 
@@ -107,7 +107,12 @@ def post_comment_to_subsquare(
         "timestamp": int(time.time() * 1000),
     }
 
-    message_to_sign = json.dumps(entity_payload, separators=(",", ":"))
+    message_to_sign = json.dumps(
+        entity_payload, 
+        sort_keys=True, 
+        separators=(",", ":"),
+        ensure_ascii=False
+    )
 
     cybergov_mnemonic = Secret.load(f"{network}-cybergov-mnemonic").get()
     keypair = Keypair.create_from_mnemonic(cybergov_mnemonic)
@@ -133,13 +138,20 @@ def post_comment_to_subsquare(
     )
 
     try:
-        response = httpx.post(api_url, headers=headers, json=final_request_body)
+        # This is absolutely crucial here!
+        # posting comment_manual='TEST Again using a short message and some quotes " \n test " " ' DOES NOT WORK
+        # posting comment_manual='TEST Again using a short message' WORKS
+        # previously we were sending json=final_request_body, but changing it to purely data and let the server figure things out works better
+        response = httpx.post(api_url, headers=headers, data=json.dumps(final_request_body, sort_keys=True, separators=(",", ":")))
         response.raise_for_status()
         logger.info(f"Success!: {response.json()}")
 
     except httpx.RequestError as e:
         logger.error(f"An error occurred while connecting to Subsquare: {e}")
         raise
+    except httpx.HTTPStatusError as e:
+        logger.error(f"An error occured with the POST request.")
+        raise 
     except Exception as e:
         logger.error(f"An error occurred while posting the comment to Subsquare: {e}")
         raise

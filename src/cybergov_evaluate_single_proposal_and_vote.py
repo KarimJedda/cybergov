@@ -26,38 +26,50 @@ def generate_summary_rationale(
         1 for v in votes_breakdown if v["decision"].upper() == "ABSTAIN"
     )
 
+    balthazar_rationale, balthazar_decision = None, None
+    melchior_rationale, melchior_decision = None, None
+    caspar_rationale, caspar_decision = None, None
+
     for analysis_file in analysis_files:
         with open(analysis_file, "r") as f:
             data = json.load(f)
 
         # Use the .name attribute of the Path object for comparison
         if analysis_file.name == "balthazar.json":
-            # balthazar_rationale = data['rationale']
+            balthazar_rationale = data['rationale']
             balthazar_decision = data["decision"]
         elif analysis_file.name == "melchior.json":
-            # melchior_rationale = data['rationale']
+            melchior_rationale = data['rationale']
             melchior_decision = data["decision"]
         elif analysis_file.name == "caspar.json":
-            # caspar_rationale = data['rationale']
+            caspar_rationale = data['rationale']
             caspar_decision = data["decision"]
 
     ## TODO get the vote number in here to inform people that this might not be the first vote (old links will go stale)
     # requires a way to edit old proposal comments, maybe for later
     summary_text = f"""
-<h2>CYBERGOV V0</h2>
-<p>The models voted {aye_votes} AYE, {nay_votes} NAY and {abstain_votes} ABSTAIN.</p>
-<h2>Outcome</h2>
+<h1>CYBERGOV V0 - Proposal Analysis</h1>
+<h2>Vote Summary</h2>
+<p>A panel of autonomous agents reviewed this proposal, resulting in a vote of <strong>{aye_votes} AYE</strong>, <strong>{nay_votes} NAY</strong>, and <strong>{abstain_votes} ABSTAIN</strong>.</p>
+<h2>Detailed Rationales</h2>
+<h3>Balthazar voted <strong>{balthazar_decision}</strong></h3>
+<blockquote>{balthazar_rationale}</blockquote>
+<h3>Melchior voted <strong>{melchior_decision}</strong></h3>
+<blockquote>{melchior_rationale}</blockquote>
+<h3>Caspar voted <strong>{caspar_decision}</strong></h3>
+<blockquote>{caspar_rationale}</blockquote>
+<h2>System Transparency</h2>
+<p>To ensure full transparency, all data and processes related to this vote are publicly available:</p>
 <ul>
-    <li>Balthazar voted <a href="https://cybergov.b-cdn.net/proposals/{network}/{proposal_id}/llm_analyses/balthazar.json">{balthazar_decision}</a></li>
-    <li>Melchior voted <a href="https://cybergov.b-cdn.net/proposals/{network}/{proposal_id}/llm_analyses/melchior.json">{melchior_decision}</a></li>
-    <li>Caspar voted <a href="https://cybergov.b-cdn.net/proposals/{network}/{proposal_id}/llm_analyses/balthazar.json">{caspar_decision}</a></li>
+    <li><strong>Manifest File:</strong> <a href="https://cybergov.b-cdn.net/proposals/{network}/{proposal_id}/manifest.json">View the full inputs and outputs.</a></li>
+    <li><strong>Execution Log:</strong> <a href="https://github.com/KarimJedda/cybergov/actions/workflows/run_{network}.yml">Verify the public GitHub pipeline run.</a></li>
+    <li><strong>Source Content:</strong> <a href="https://cybergov.b-cdn.net/proposals/{network}/{proposal_id}/content.md">Read the content provided to the agents.</a></li>
 </ul>
-<p>In case of questions, remarks or contributions, please refer to:</p>
-<ul>
-    <li><a href="https://github.com/KarimJedda/cybergov/issues">https://github.com/KarimJedda/cybergov/issues</a></li>
-</ul>
+<hr>
+<h3>A Note on This System</h3>
+<p>Please be aware that this analysis was produced by Large Language Models (LLMs). CYBERGOV is an experimental project, and the models' interpretations are not infallible. They can make mistakes or overlook nuance. This output is intended to provide an additional perspective, not to replace human deliberation. We encourage community feedback to help improve the system.</p>
+<p>Further details on the project are available at the <a href="https://github.com/KarimJedda/cybergov">main repository</a>.</p>
 """
-
     return summary_text
 
 
