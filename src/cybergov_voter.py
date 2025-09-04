@@ -434,7 +434,7 @@ async def vote_on_opengov_proposal(
     if not proceed_with_vote:
         return
 
-    vote_result, conviction, vote_file_hash = get_inference_result(
+    vote_result, conviction, vote_file_hash, vote_data = get_inference_result(
         network=network,
         proposal_id=proposal_id,
         s3_bucket=s3_bucket,

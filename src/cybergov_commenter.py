@@ -214,9 +214,7 @@ if __name__ == "__main__":
     network_arg = sys.argv[1]
     proposal_id_arg = int(sys.argv[2])
 
-    asyncio.run(
-        post_magi_comment_to_subsquare(
+    post_magi_comment_to_subsquare(
             network=network_arg, 
             proposal_id=proposal_id_arg,
         )
-    )
