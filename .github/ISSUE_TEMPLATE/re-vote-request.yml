@@ -1,0 +1,136 @@
+name: 🗳️ Re-vote Request
+description: Request a re-evaluation and re-vote for a specific proposal
+title: "[RE-VOTE] Proposal #[PROPOSAL_ID] on [NETWORK] - [Brief Reason]"
+labels: ["re-vote", "community-feedback"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Re-vote Request for CYBERGOV Analysis
+        
+        Use this template to request that the CYBERGOV system re-evaluate a proposal. Re-votes are triggered when there are significant changes to the proposal content, new information that wasn't available during the original analysis, or legitimate concerns about the original evaluation.
+        
+        **Important:** The rationale you provide here will NOT be shared with the LLMs. All relevant information should be publicly available on the proposal page itself.
+
+  - type: input
+    id: proposal_id
+    attributes:
+      label: Proposal ID
+      description: The numeric ID of the proposal (e.g., 123)
+      placeholder: "123"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: network
+    attributes:
+      label: Network
+      description: Which network is this proposal on?
+      options:
+        - polkadot
+        - kusama
+        - paseo
+    validations:
+      required: true
+
+  - type: input
+    id: original_vote_link
+    attributes:
+      label: Original CYBERGOV Analysis Link
+      description: Link to the original CYBERGOV comment on the proposal
+      placeholder: "https://polkadot.subsquare.io/referenda/123#comment-xyz"
+    validations:
+      required: true
+
+  - type: input
+    id: manifest_link
+    attributes:
+      label: Original Manifest File
+      description: Link to the original manifest.json file for verification
+      placeholder: "https://cybergov.b-cdn.net/proposals/polkadot/123/manifest.json"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: reason_category
+    attributes:
+      label: Reason for Re-vote Request
+      description: Primary reason for requesting a re-vote
+      options:
+        - "Proposal content was significantly updated after original vote"
+        - "Critical information was missing during original analysis"
+        - "Technical error in original evaluation process"
+        - "New evidence contradicts original analysis"
+        - "Community consensus strongly disagrees with LLM decision"
+        - "Other (specify in rationale)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: rationale
+    attributes:
+      label: Detailed Rationale
+      description: |
+        Provide a comprehensive explanation for why this proposal should be re-evaluated. Include:
+        - Specific changes or new information since the original vote
+        - Links to relevant discussions, updates, or evidence
+        - Why the original analysis may have been insufficient or incorrect
+        
+        Remember: This rationale will be public but will NOT be provided to the LLMs during re-evaluation.
+      placeholder: |
+        Example:
+        The proposal was significantly updated on [date] to include additional technical specifications that address the security concerns raised by the community. The original CYBERGOV analysis was based on an earlier version that lacked these crucial details.
+        
+        Key changes:
+        - Added comprehensive security audit requirements
+        - Reduced budget by 30% based on community feedback
+        - Extended timeline to allow for proper testing
+        
+        Links to evidence:
+        - Updated proposal text: [link]
+        - Community discussion: [link]
+        - Technical review: [link]
+    validations:
+      required: true
+
+  - type: textarea
+    id: community_support
+    attributes:
+      label: Community Support Evidence
+      description: |
+        Provide evidence of community support for this re-vote request (optional but recommended)
+      placeholder: |
+        - Links to community discussions supporting re-vote
+        - Number of community members who have expressed similar concerns
+        - Relevant validator or council member opinions
+
+  - type: checkboxes
+    id: verification
+    attributes:
+      label: Verification Checklist
+      description: Please confirm the following before submitting
+      options:
+        - label: I have verified that the proposal content or circumstances have materially changed since the original CYBERGOV analysis
+          required: true
+        - label: I have provided specific, factual reasons for the re-vote request
+          required: true
+        - label: I understand that frivolous or spam re-vote requests may be closed without action
+          required: true
+        - label: I have checked that a similar re-vote request has not already been submitted for this proposal
+          required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        
+        **What happens next?**
+        
+        1. The CYBERGOV team will review your request within 48-72 hours
+        2. If approved, the proposal will be re-scraped and re-evaluated using the current proposal content
+        3. A new GitHub Actions workflow will be triggered
+        4. The original analysis will be archived and a new analysis will be published
+        5. You will be notified when the re-evaluation is complete
+        
+        **Note:** Re-votes are not guaranteed and will only be approved when there is clear justification for re-evaluation.

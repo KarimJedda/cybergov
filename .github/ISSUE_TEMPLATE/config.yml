@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📚 CYBERGOV Documentation
+    url: https://github.com/KarimJedda/cybergov/blob/main/README.md
+    about: Read the project documentation and operator manual
+  - name: 💬 Community Discussion
+    url: https://github.com/KarimJedda/cybergov/discussions
+    about: Join general discussions about CYBERGOV and governance
