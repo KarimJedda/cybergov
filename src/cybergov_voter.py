@@ -36,6 +36,38 @@ class VoteResult(str, Enum):
     ABSTAIN = "ABSTAIN"
 
 
+def setup_s3_filesystem(access_key: str, secret_key: str, endpoint_url: str) -> s3fs.S3FileSystem:
+    """
+    Initialize S3 filesystem with consistent configuration.
+    Extracted from duplicated S3 setup code.
+    """
+    return s3fs.S3FileSystem(
+        key=access_key,
+        secret=secret_key,
+        client_kwargs={"endpoint_url": endpoint_url},
+        asynchronous=False,
+        loop=None,
+    )
+
+
+async def load_s3_credentials() -> tuple[str, str, str, str]:
+    """
+    Load S3 credentials from Prefect blocks.
+    Returns: (s3_bucket, endpoint_url, access_key, secret_key)
+    """
+    s3_bucket_block = await String.load("scaleway-bucket-name")
+    endpoint_block = await String.load("scaleway-s3-endpoint-url")
+    access_key_block = await Secret.load("scaleway-access-key-id")
+    secret_key_block = await Secret.load("scaleway-secret-access-key")
+
+    return (
+        s3_bucket_block.value,
+        endpoint_block.value,
+        access_key_block.get(),
+        secret_key_block.get(),
+    )
+
+
 def get_remark_hash(s3_client: s3fs.S3FileSystem, file_path: str) -> str:
     """Reads a JSON file from S3, and returns its canonical SHA256 hash."""
     with s3_client.open(file_path, "rb") as f:
@@ -46,6 +78,41 @@ def get_remark_hash(s3_client: s3fs.S3FileSystem, file_path: str) -> str:
         manifest_data, sort_keys=True, separators=(",", ":")
     ).encode("utf-8")
     return hashlib.sha256(canonical_manifest).hexdigest()
+
+
+def create_vote_parameters(vote: str, network: str) -> dict:
+    """
+    Create vote parameters based on vote decision and network.
+    Extracted from create_and_sign_vote_tx for better testability.
+    """
+    if vote.capitalize() == "Abstain":
+        return {
+            "SplitAbstain": {
+                "aye": 0,
+                "nay": 0,
+                "abstain": voting_power[network],
+            }
+        }
+    else:
+        # Get conviction based on network
+        if network == "polkadot":
+            conviction = CONVICTION_MAPPING[1]
+        elif network == "kusama":
+            conviction = CONVICTION_MAPPING[2]
+        elif network == "paseo":
+            conviction = CONVICTION_MAPPING[1]
+        else:
+            conviction = CONVICTION_MAPPING[1]  # Default fallback
+            
+        return {
+            "Standard": {
+                "vote": {
+                    "aye": True if vote.capitalize() == "Aye" else False,
+                    "conviction": conviction,
+                },
+                "balance": voting_power[network],
+            }
+        }
 
 
 @task
@@ -78,32 +145,7 @@ def create_and_sign_vote_tx(
                 logger.error(f"Could not load '{network}-voter-mnemonic' Secret block.")
                 raise
 
-            # The conviction vote will be submitted as a proxy
-            if network == "polkadot":
-                conviction = CONVICTION_MAPPING[1]
-            if network == "kusama":
-                conviction = CONVICTION_MAPPING[2]
-            if network == "paseo":
-                conviction = CONVICTION_MAPPING[1]
-
-            if vote.capitalize() == "Abstain":
-                vote_parameters = {
-                    "SplitAbstain": {
-                        "aye": 0,
-                        "nay": 0,
-                        "abstain": voting_power[network],
-                    }
-                }
-            else:
-                vote_parameters = {
-                    "Standard": {
-                        "vote": {
-                            "aye": True if vote.capitalize() == "Aye" else False,
-                            "conviction": conviction,
-                        },
-                        "balance": voting_power[network],
-                    }
-                }
+            vote_parameters = create_vote_parameters(vote, network)
             vote_call = substrate.compose_call(
                 call_module="ConvictionVoting",
                 call_function="vote",
@@ -188,7 +230,7 @@ def get_inference_result(
     endpoint_url: str,
     access_key: str,
     secret_key: str,
-):
+) -> tuple[VoteResult | None, int | None, str | None, dict | None]:
     """
     Fetch MAGI vote result from S3 and execute vote
 
@@ -204,13 +246,7 @@ def get_inference_result(
     logger.info(f"Checking for vote results on {network} for proposal {proposal_id}")
 
     try:
-        s3 = s3fs.S3FileSystem(
-            key=access_key,
-            secret=secret_key,
-            client_kwargs={
-                "endpoint_url": endpoint_url,
-            },
-        )
+        s3 = setup_s3_filesystem(access_key, secret_key, endpoint_url)
 
         with s3.open(vote_file_path, "rb") as f:
             vote_data = json.load(f)
@@ -220,6 +256,7 @@ def get_inference_result(
         try:
             vote_result = VoteResult(raw_vote)
         except ValueError:
+            logger.error(f"Invalid 'final_decision' in vote.json: {raw_vote}")
             raise ValueError(f"Invalid 'final_decision' in vote.json: {raw_vote}")
 
         is_unanimous = vote_data.get("is_unanimous", False)
@@ -238,6 +275,9 @@ def get_inference_result(
             f"Vote file not found at {vote_file_path}. No inference result available."
         )
         return None, None, None
+    except ValueError:
+        # Re-raise ValueError for invalid vote decisions - don't convert to RuntimeError
+        raise
     except Exception as e:
         # Log the root cause for debugging, but don't expose it to the caller.
         logger.error(
@@ -322,7 +362,7 @@ def should_we_vote(
     endpoint_url: str,
     access_key: str,
     secret_key: str,
-):
+) -> bool:
     """
     TODO Lazy function to check if we should vote, should refactor, I know I know
 
@@ -335,13 +375,7 @@ def should_we_vote(
     )
 
     try:
-        s3 = s3fs.S3FileSystem(
-            key=access_key,
-            secret=secret_key,
-            client_kwargs={
-                "endpoint_url": endpoint_url,
-            },
-        )
+        s3 = setup_s3_filesystem(access_key, secret_key, endpoint_url)
 
         with s3.open(subsquare_data_path, "rb") as f:
             vote_data = json.load(f)
@@ -383,16 +417,9 @@ async def vote_on_opengov_proposal(
     A full workflow to vote on a Polkadot OpenGov proposal.
     """
     logger = get_run_logger()
+    logger.info(f"🚀 Starting vote workflow for proposal {proposal_id} on {network}")
 
-    s3_bucket_block = await String.load("scaleway-bucket-name")
-    endpoint_block = await String.load("scaleway-s3-endpoint-url")
-    access_key_block = await Secret.load("scaleway-access-key-id")
-    secret_key_block = await Secret.load("scaleway-secret-access-key")
-
-    s3_bucket = s3_bucket_block.value
-    endpoint_url = endpoint_block.value
-    access_key = access_key_block.get()
-    secret_key = secret_key_block.get()
+    s3_bucket, endpoint_url, access_key, secret_key = await load_s3_credentials()
 
     proceed_with_vote = should_we_vote(
         network=network,
