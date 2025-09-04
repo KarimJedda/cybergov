@@ -140,16 +140,26 @@ Very smooth sailing:
 ## Operator manual 
 
 
-Only for manual interventions
+Field guide for Ikari apprentices.
 
 ```
 cd src/
 
 # step 1
-python cybergov_data_scraper.py <network> proposal_id
+python cybergov_data_scraper.py <network> <proposal_id>
 
-# step 2
-python cybergov_data_scraper.py <network> proposal_id
+# step 2.alpha (run inference locally)
+PROPOSAL_ID=<proposal_id> NETWORK=<network>  S3_ENDPOINT_URL=XXX  S3_BUCKET_NAME=XX S3_ACCESS_KEY_ID=XXX S3_ACCESS_KEY_SECRET=XXX OPENROUTER_API_KEY="XXX" python cybergov_evaluate_single_proposal_and_vote.py
+
+# step 2.beta (run inference remotely on GitHub)
+python cybergov_inference.py <network> <proposal_id>
+
+# step 3 
+python cybergov_voter.py <network> <proposal_id>
+
+# step 4
+python cybergov_commenter.py <network> <proposal_id>
+
 ```
 
 
