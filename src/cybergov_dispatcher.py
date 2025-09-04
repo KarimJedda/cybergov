@@ -256,6 +256,19 @@ async def cybergov_dispatcher_flow(
 
 
 if __name__ == "__main__":
+    import sys
     import asyncio
 
-    asyncio.run(cybergov_dispatcher_flow(network="paseo", proposal_id=102))
+    if len(sys.argv) != 3:
+        print("Usage: python cybergov_dispatcher.py <network> <proposal_id>")
+        sys.exit(1)
+
+    network_arg = sys.argv[1]
+    proposal_id_arg = int(sys.argv[2])
+
+    asyncio.run(
+        cybergov_dispatcher_flow(
+            network=network_arg, 
+            proposal_id=proposal_id_arg,
+        )
+    )

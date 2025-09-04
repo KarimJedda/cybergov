@@ -275,5 +275,19 @@ async def github_action_trigger_and_monitor(
 
 if __name__ == "__main__":
     import asyncio
+    import sys
 
-    asyncio.run(github_action_trigger_and_monitor(network="paseo", proposal_id=100))
+    if len(sys.argv) != 3:
+        print("Usage: python cybergov_inference.py <network> <proposal_id>")
+        sys.exit(1)
+
+    network_arg = sys.argv[1]
+    proposal_id_arg = int(sys.argv[2])
+
+    asyncio.run(
+        github_action_trigger_and_monitor(
+            network=network_arg, 
+            proposal_id=proposal_id_arg,
+            schedule_vote=True
+        )
+    )

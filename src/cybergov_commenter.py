@@ -204,7 +204,19 @@ def post_magi_comment_to_subsquare(
 
 
 if __name__ == "__main__":
-    post_magi_comment_to_subsquare(
-        network="paseo",
-        proposal_id=100,
+    import sys
+    import asyncio
+
+    if len(sys.argv) != 3:
+        print("Usage: python cybergov_commenter.py <network> <proposal_id>")
+        sys.exit(1)
+
+    network_arg = sys.argv[1]
+    proposal_id_arg = int(sys.argv[2])
+
+    asyncio.run(
+        post_magi_comment_to_subsquare(
+            network=network_arg, 
+            proposal_id=proposal_id_arg,
+        )
     )

@@ -479,11 +479,19 @@ async def vote_on_opengov_proposal(
 
 if __name__ == "__main__":
     import asyncio
+    import sys
+
+    if len(sys.argv) != 3:
+        print("Usage: python cybergov_voter.py <network> <proposal_id>")
+        sys.exit(1)
+
+    network_arg = sys.argv[1]
+    proposal_id_arg = int(sys.argv[2])
 
     asyncio.run(
         vote_on_opengov_proposal(
-            network="paseo", 
-            proposal_id=100,
+            network=network_arg, 
+            proposal_id=proposal_id_arg,
             schedule_comment=False
         )
     )
