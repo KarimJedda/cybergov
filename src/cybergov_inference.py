@@ -158,6 +158,7 @@ def poll_workflow_run_status(run_id: int):
             else:
                 error_message = f"GitHub Action run {run_id} failed with conclusion: '{conclusion}'."
                 logger.error(error_message)
+                # TODO, use FAIL(...) instead of raising some random stuff here
                 raise
 
         time.sleep(GH_POLL_INTERVAL_SECONDS)
