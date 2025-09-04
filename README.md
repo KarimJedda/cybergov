@@ -165,14 +165,15 @@ python cybergov_data_scraper.py <network> proposal_id
 - [ ] Add the RAW JSON response to the `llm_analyses/*.jsons`
 - [ ] Load system prompts from files to let peopel edit them 
 - [ ] The comment we leave is meh, it should point to a nice generated page with the justifications (like teased in the Tweet)
- 
+- [ ] More tests 
+- [ ] Explore using prefect fail states like `Failed` instead of the random exceptions
 
 ## Ideas
 
 - "The White Rabbit" provided the idea of scraping AAG YouTube discussions and adding them to the context of the proposals. 
   - A good idea but complicated to automate fully, we'll need to automatically map what is being said to the proper proposals. False positives could be detrimental to data quality. 
 - Add historical context to the proposals (RAG/embeddings), this will be prototyped. Historical data can be provided by Subsquare.
-- Link vote_archive_{index} to to vote_archive_{index-1}, this way we ensure successive runs are linked, and the operator isn't fishing for favorable votes, although the latter would be visible (hash on-chain)
+- Link `vote_archive_{index}` to to `vote_archive_{index-1}`, this way we ensure successive runs are linked, and the operator isn't fishing for favorable votes, although the latter would be visible (hash on-chain)
 - Setting up the project, how to etc (note: there seems to be some messup with uv & pip when installing the requirements on the latest versions)
 - Pick LLMs from a random list? 
 - Have the SAME LLM compile the DSPy program? 
