@@ -228,7 +228,11 @@ async def schedule_voting_task(proposal_id: int, network: str):
 
 
 @flow(name="GitHub Action Trigger and Monitor", log_prints=True)
-async def github_action_trigger_and_monitor(proposal_id: int, network: str):
+async def github_action_trigger_and_monitor(
+    proposal_id: int, 
+    network: str, 
+    schedule_vote: bool = True
+):
     """
     Triggers a GitHub Action, waits for it to complete, and checks its status.
     """
@@ -251,19 +255,22 @@ async def github_action_trigger_and_monitor(proposal_id: int, network: str):
     if conclusion != "success":
         raise Exception("Problemooooo")
 
-    is_already_scheduled = await check_if_voting_already_scheduled(
-        proposal_id=proposal_id, network=network
-    )
-    if not is_already_scheduled:
-        await schedule_voting_task(proposal_id=proposal_id, network=network)
+    if schedule_vote:
+        is_already_scheduled = await check_if_voting_already_scheduled(
+            proposal_id=proposal_id, network=network
+        )
+        if not is_already_scheduled:
+            await schedule_voting_task(proposal_id=proposal_id, network=network)
 
-        logger.info(
-            "✅ Magi Inference was successful! Vote was successfully scheduled."
-        )
+            logger.info(
+                "✅ Magi Inference was successful! Vote was successfully scheduled."
+            )
+        else:
+            logger.info(
+                "Magi Inference was successful but vote is already scheduled, nothing to do."
+            )
     else:
-        logger.info(
-            "Magi Inference was successful but vote is already scheduled, nothing to do."
-        )
+        logger.info("✅ Magi Inference was successful! Skipping vote scheduling (schedule_vote=False)")
 
 
 if __name__ == "__main__":

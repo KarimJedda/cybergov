@@ -352,7 +352,11 @@ def generate_prompt_content(network: str, proposal_id: int):
 
 
 @flow(name="Fetch Proposal Data")
-async def fetch_proposal_data(network: str, proposal_id: int):
+async def fetch_proposal_data(
+    network: str, 
+    proposal_id: int, 
+    schedule_inference: bool = True
+):
     """
     Fetch relevant data for a proposal, parse its data, and save it to S3.
     """
@@ -385,15 +389,18 @@ async def fetch_proposal_data(network: str, proposal_id: int):
         logger.info("Placeholder for LLM prompt generation.")
         generate_prompt_content(network=network, proposal_id=proposal_id)
 
-        logger.info(
-            "All good! Now scheduling the inference in 30 minutes. If inference successful, schedule vote & comment too!."
-        )
+        if schedule_inference:
+            logger.info(
+                "All good! Now scheduling the inference in 30 minutes. If inference successful, schedule vote & comment too!."
+            )
 
-        is_already_scheduled = await check_if_already_scheduled(
-            proposal_id=proposal_id, network=network
-        )
-        if not is_already_scheduled:
-            await schedule_inference_task(proposal_id=proposal_id, network=network)
+            is_already_scheduled = await check_if_already_scheduled(
+                proposal_id=proposal_id, network=network
+            )
+            if not is_already_scheduled:
+                await schedule_inference_task(proposal_id=proposal_id, network=network)
+        else:
+            logger.info("✅ Data fetching completed! Skipping inference scheduling (schedule_inference=False)")
 
     except (ProposalFetchError, ProposalParseError) as e:
         logger.error(f"Pipeline failed for {network} ref {proposal_id}. Reason: {e}")
@@ -419,5 +426,7 @@ if __name__ == "__main__":
     asyncio.run(
         fetch_proposal_data(
             network=network_arg, 
-            proposal_id=proposal_id_arg)
+            proposal_id=proposal_id_arg,
+            schedule_inference=True
+        )
     )

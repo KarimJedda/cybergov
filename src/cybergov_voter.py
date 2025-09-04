@@ -412,6 +412,7 @@ def should_we_vote(
 async def vote_on_opengov_proposal(
     network: str,
     proposal_id: int,
+    schedule_comment: bool = True,
 ):
     """
     A full workflow to vote on a Polkadot OpenGov proposal.
@@ -459,13 +460,16 @@ async def vote_on_opengov_proposal(
             f"✅ Successfully processed vote for proposal {proposal_id}. View transaction at: https://{network}.subscan.io/extrinsic/{tx_hash} or https://assethub-{network}.subscan.io/extrinsic/{tx_hash}"
         )
 
-        logger.info("Proceeding to posting comment...")
+        if schedule_comment:
+            logger.info("Proceeding to posting comment...")
 
-        is_already_scheduled = await check_if_commenting_already_scheduled(
-            proposal_id=proposal_id, network=network
-        )
-        if not is_already_scheduled:
-            await schedule_comment_task(proposal_id=proposal_id, network=network)
+            is_already_scheduled = await check_if_commenting_already_scheduled(
+                proposal_id=proposal_id, network=network
+            )
+            if not is_already_scheduled:
+                await schedule_comment_task(proposal_id=proposal_id, network=network)
+        else:
+            logger.info("Skipping comment scheduling (schedule_comment=False)")
     else:
         logger.error(f"Cannot vote, the {network}/{proposal_id}/vote.json is invalid")
         raise RuntimeError(
@@ -476,4 +480,10 @@ async def vote_on_opengov_proposal(
 if __name__ == "__main__":
     import asyncio
 
-    asyncio.run(vote_on_opengov_proposal(network="paseo", proposal_id=100))
+    asyncio.run(
+        vote_on_opengov_proposal(
+            network="paseo", 
+            proposal_id=100,
+            schedule_comment=False
+        )
+    )
