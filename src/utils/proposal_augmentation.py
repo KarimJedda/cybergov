@@ -64,7 +64,9 @@ class ProposalAugmenter(dspy.Module):
         The forward method's job is to run the core logic and return the
         structured prediction object, which is needed for compilation.
         """
-        if len(proposal_content) > 30000:  # ~8k tokens, a reasonable upper limit
+        if not proposal_content:
+            proposal_content = "[No Proposal content provided]"
+        elif len(proposal_content) > 30000:  # ~8k tokens, a reasonable upper limit
             proposal_content = (
                 proposal_content[:30000]
                 + "\n\n...[CONTENT TRUNCATED DUE TO EXCESSIVE LENGTH]..."

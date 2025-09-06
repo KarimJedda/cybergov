@@ -5,6 +5,7 @@ import httpx
 from prefect import flow, task, get_run_logger
 from prefect.blocks.system import Secret, String
 from prefect.tasks import exponential_backoff
+from prefect.server.schemas.states import Completed, Failed
 import s3fs
 import datetime
 from prefect.server.schemas.filters import (
@@ -21,6 +22,7 @@ from utils.constants import (
     NETWORK_MAP,
     INFERENCE_SCHEDULE_DELAY_MINUTES,
     INFERENCE_TRIGGER_DEPLOYMENT_ID,
+    ALLOWED_TRACK_IDS,
 )
 from utils.proposal_augmentation import generate_content_for_magis
 
@@ -31,6 +33,53 @@ class ProposalFetchError(Exception):
 
 class ProposalParseError(Exception):
     pass
+
+
+class InvalidTrackError(Exception):
+    pass
+
+
+async def load_s3_credentials():
+    """Load S3 credentials from Prefect blocks."""
+    s3_bucket_block = await String.load("scaleway-bucket-name")
+    endpoint_block = await String.load("scaleway-s3-endpoint-url")
+    access_key_block = await Secret.load("scaleway-write-access-key-id")
+    secret_key_block = await Secret.load("scaleway-write-secret-access-key")
+    
+    return {
+        "s3_bucket": s3_bucket_block.value,
+        "endpoint_url": endpoint_block.value,
+        "access_key": access_key_block.get(),
+        "secret_key": secret_key_block.get(),
+    }
+
+
+def setup_s3_filesystem(access_key: str, secret_key: str, endpoint_url: str):
+    """Create and return an S3FileSystem instance."""
+    return s3fs.S3FileSystem(
+        key=access_key,
+        secret=secret_key,
+        client_kwargs={
+            "endpoint_url": endpoint_url,
+        },
+    )
+
+
+def validate_proposal_track(proposal_data: Dict[str, Any]) -> bool:
+    """Validate that the proposal track is in the allowed list."""
+    logger = get_run_logger()
+    
+    track = proposal_data.get("track")
+    if track is None:
+        logger.warning("Proposal data missing 'track' field")
+        return False
+    
+    if track not in ALLOWED_TRACK_IDS:
+        logger.warning(f"Proposal track {track} not in allowed tracks {ALLOWED_TRACK_IDS}")
+        return False
+    
+    logger.info(f"✅ Proposal track {track} is valid")
+    return True
 
 
 @task(
@@ -382,6 +431,23 @@ async def fetch_proposal_data(
         )
 
         logger.info(f"Raw data is available at: {raw_data_s3_path}")
+        
+        logger.info("Validating proposal track...")
+        s3_creds = await load_s3_credentials()
+        s3 = setup_s3_filesystem(
+            access_key=s3_creds["access_key"],
+            secret_key=s3_creds["secret_key"],
+            endpoint_url=s3_creds["endpoint_url"]
+        )
+        
+        with s3.open(raw_data_s3_path, "r") as f:
+            raw_proposal_data = json.load(f)
+        
+        if not validate_proposal_track(raw_proposal_data):
+            track_id = raw_proposal_data.get("track", "unknown")
+            message = f"Not scheduling inference for this proposal, track_id {track_id} is not delegated to CyberGov"
+            logger.warning(message)
+            return Completed(message=message)
 
         logger.info("Placeholder for enrichment tasks.")
         enrich_proposal_data(network=network, proposal_id=proposal_id)
@@ -402,14 +468,18 @@ async def fetch_proposal_data(
         else:
             logger.info("✅ Data fetching completed! Skipping inference scheduling (schedule_inference=False)")
 
-    except (ProposalFetchError, ProposalParseError) as e:
-        logger.error(f"Pipeline failed for {network} ref {proposal_id}. Reason: {e}")
-        raise
+    except ProposalFetchError as e:
+        message = f"Failed to fetch proposal data for {network} proposal {proposal_id}"
+        logger.error(message)
+        return Failed(message=message)
+    except ProposalParseError as e:
+        message = f"Failed to parse proposal data for {network} proposal {proposal_id}"
+        logger.error(message)
+        return Failed(message=message)
     except Exception as e:
-        logger.error(
-            f"An unexpected error occurred in the pipeline for {network} ref {proposal_id}: {e}"
-        )
-        raise
+        message = f"Unexpected error processing {network} proposal {proposal_id}: {str(e)}"
+        logger.error(message)
+        return Failed(message=message)
 
 
 if __name__ == "__main__":
