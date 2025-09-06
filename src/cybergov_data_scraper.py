@@ -497,6 +497,6 @@ if __name__ == "__main__":
         fetch_proposal_data(
             network=network_arg, 
             proposal_id=proposal_id_arg,
-            schedule_inference=True
+            schedule_inference=False
         )
     )

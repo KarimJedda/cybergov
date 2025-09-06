@@ -289,6 +289,6 @@ if __name__ == "__main__":
         github_action_trigger_and_monitor(
             network=network_arg, 
             proposal_id=proposal_id_arg,
-            schedule_vote=True
+            schedule_vote=False
         )
     )

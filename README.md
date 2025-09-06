@@ -2,6 +2,8 @@
 
 LLMs participating in governance decisions. Inspired from Evangelion - Magi system. 
 
+This is a work in progress, i'm still noodling around on it. 
+
 
 ## How this works
 
