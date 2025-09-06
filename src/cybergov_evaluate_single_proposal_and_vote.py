@@ -68,7 +68,7 @@ def generate_summary_rationale(
 <hr>
 <h3>A Note on This System</h3>
 <p>Please be aware that this analysis was produced by Large Language Models (LLMs). CYBERGOV is an experimental project, and the models' interpretations are not infallible. They can make mistakes or overlook nuance. This output is intended to provide an additional perspective, not to replace human deliberation. We encourage community feedback to help improve the system.</p>
-<p>Further details on the project are available at the <a href="https://github.com/KarimJedda/cybergov">main repository</a>.</p>
+<p>Further details on the project are available at the <a href="https://github.com/KarimJedda/cybergov">main repository</a>. Consider delegating to CYBERGOV :)</p>
 """
     return summary_text
 
@@ -84,21 +84,23 @@ def perform_preflight_checks(s3, proposal_s3_path, local_workspace):
     # 1. Check for raw_subsquare.json in S3
     raw_subsquare_s3_path = f"{proposal_s3_path}/raw_subsquare_data.json"
     if not s3.exists(raw_subsquare_s3_path):
-        raise FileNotFoundError(
-            f"Required file not found in S3: {raw_subsquare_s3_path}"
-        )
+        logger.error("Something went wrong finding raw_subsquare_data.json")
+        sys.exit(1)
 
     with s3.open(raw_subsquare_s3_path, "r") as f:
         raw_data = json.load(f)
     required_attrs = ["referendumIndex", "title", "content", "proposer"]
     if not all(attr in raw_data for attr in required_attrs):
-        raise ValueError(
-            f"raw_subsquare.json is missing one of the required attributes: {required_attrs}"
-        )
+        logger.error("Something went wrong validating raw_subsquare.json")
+        sys.exit(1)
 
     # Download, hash, and record raw_subsquare.json
     local_raw_path = local_workspace / "raw_subsquare.json"
-    s3.download(raw_subsquare_s3_path, str(local_raw_path))
+    try:
+        s3.download(raw_subsquare_s3_path, str(local_raw_path))
+    except Exception as e:
+        logger.error("Something went wrong downloading raw_subsquare.json")
+        sys.exit(1)
     manifest_inputs.append(
         {
             "logical_name": "raw_subsquare_data",
@@ -111,11 +113,16 @@ def perform_preflight_checks(s3, proposal_s3_path, local_workspace):
     # 2. Check for content.md in S3
     content_md_s3_path = f"{proposal_s3_path}/content.md"
     if not s3.exists(content_md_s3_path):
-        raise FileNotFoundError(f"Required file not found in S3: {content_md_s3_path}")
+        logger.error("Something went wrong finding content.md")
+        sys.exit(1)
 
     # Download, hash, and record content.md
     local_content_path = local_workspace / Path(content_md_s3_path).name
-    s3.download(content_md_s3_path, str(local_content_path))
+    try:
+        s3.download(content_md_s3_path, str(local_content_path))
+    except Exception as e:
+        logger.error("Something went wrong downloading content.md")
+        sys.exit(1)
     manifest_inputs.append(
         {
             "logical_name": "content_markdown",
@@ -131,9 +138,8 @@ def perform_preflight_checks(s3, proposal_s3_path, local_workspace):
     for model in magi_models:
         prompt_file = prompt_dir / f"{model}_system_prompt.md"
         if not prompt_file.exists():
-            raise FileNotFoundError(
-                f"Required local system prompt not found: {prompt_file}"
-            )
+            logger.error(f"Something went wrong finding {model}_system_prompt.md")
+            sys.exit(1)
     logger.info("✅ All local system prompts found.")
 
     logger.info("Pre-flight checks passed.")
@@ -165,9 +171,8 @@ def run_magi_evaluations(magi_models_list, local_workspace):
 
     proposal_content_path = local_workspace / "content.md"
     if not proposal_content_path.exists():
-        raise FileNotFoundError(
-            f"Proposal content not found at {proposal_content_path}"
-        )
+        logger.error("Something went wrong finding proposal content")
+        sys.exit(1)
     proposal_text = proposal_content_path.read_text()
 
     output_files = []
@@ -295,13 +300,19 @@ def setup_s3_and_workspace(config):
     network = config["NETWORK"]
     s3_bucket = config["S3_BUCKET_NAME"]
 
-    s3 = s3fs.S3FileSystem(
-        key=config["S3_ACCESS_KEY_ID"],
-        secret=config["S3_ACCESS_KEY_SECRET"],
-        client_kwargs={"endpoint_url": config["S3_ENDPOINT_URL"]},
-        asynchronous=False,
-        loop=None,
-    )
+    try:
+        # Make sure we prevent credential logging
+        s3 = s3fs.S3FileSystem(
+            key=config["S3_ACCESS_KEY_ID"],
+            secret=config["S3_ACCESS_KEY_SECRET"],
+            client_kwargs={"endpoint_url": config["S3_ENDPOINT_URL"]},
+            asynchronous=False,
+            loop=None,
+        )
+        s3.ls(s3_bucket, detail=False, refresh=True) # Test connection
+    except Exception as e:
+        logger.error("Something went wrong during S3 initialization")
+        sys.exit(1)
 
     proposal_s3_path = f"{s3_bucket}/proposals/{network}/{proposal_id}"
     logger.info(f"Working with S3 path: {proposal_s3_path}")
@@ -332,8 +343,12 @@ def upload_outputs_and_generate_manifest(s3, proposal_s3_path, local_workspace, 
 
         final_s3_path = f"{proposal_s3_path}/{s3_filename}"
 
-        s3.upload(str(local_file), final_s3_path)
-        logger.info(f"  📤 Uploaded {local_file.name} to {final_s3_path}")
+        try:
+            s3.upload(str(local_file), final_s3_path)
+            logger.info(f"  📤 Uploaded {local_file.name}")
+        except Exception as e:
+            logger.error(f"Something went wrong uploading {local_file.name}")
+            sys.exit(1)
 
         manifest_outputs.append(
             {
@@ -370,8 +385,12 @@ def upload_outputs_and_generate_manifest(s3, proposal_s3_path, local_workspace, 
     with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=2)
 
-    s3.upload(str(manifest_path), f"{proposal_s3_path}/manifest.json")
-    logger.info("✅ Uploaded manifest.")
+    try:
+        s3.upload(str(manifest_path), f"{proposal_s3_path}/manifest.json")
+        logger.info("✅ Uploaded manifest.")
+    except Exception as e:
+        logger.error("Something went wrong uploading manifest")
+        sys.exit(1)
     
     return manifest
 
@@ -408,7 +427,7 @@ def main():
         logger.info("🎉 CyberGov V0 processing complete!")
 
     except Exception as e:
-        logger.error(f"\n💥 FATAL ERROR during vote evaluation")
+        logger.error("\n💥 Something went wrong during vote evaluation")
         logger.error(f"Last successful step was: '{last_good_step}'")
         sys.exit(1)
 
