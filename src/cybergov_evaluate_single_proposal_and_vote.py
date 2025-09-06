@@ -408,7 +408,7 @@ def main():
         logger.info("🎉 CyberGov V0 processing complete!")
 
     except Exception as e:
-        logger.error(f"\n💥 FATAL ERROR during processing: {e}")
+        logger.error(f"\n💥 FATAL ERROR during vote evaluation")
         logger.error(f"Last successful step was: '{last_good_step}'")
         sys.exit(1)
 
