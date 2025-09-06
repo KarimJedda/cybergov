@@ -94,6 +94,8 @@ def post_comment_to_subsquare(
         f"https://{network}-api.subsquare.io/sima/referenda/{proposal_id}/comments"
     )
 
+    cybergov_parent_pubkey = Secret.load(f"{network}-cybergov-parent-pubkey").get()
+
     entity_payload = {
         "action": "comment",
         "indexer": {
@@ -105,6 +107,10 @@ def post_comment_to_subsquare(
         "content": comment,
         "content_format": "HTML",
         "timestamp": int(time.time() * 1000),
+        "real": {
+            "address": cybergov_parent_pubkey,
+            "section": "proxy"
+        }
     }
 
     message_to_sign = json.dumps(
@@ -178,7 +184,7 @@ def post_magi_comment_to_subsquare(
     secret_key = secret_key_block.get()
 
     logger.info(
-        f"Posting comment to Subsquare on network {network} for proposal {proposal_id}"
+        f"Posting comment to Subsquare on network {network} for1 proposal {proposal_id}"
     )
 
     comment, proposal_height = get_infos_for_substrate_comment(
