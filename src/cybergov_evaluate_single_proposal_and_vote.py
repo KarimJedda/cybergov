@@ -13,6 +13,34 @@ from collections import Counter
 logger = setup_logging()
 
 
+def load_magi_personalities() -> dict[str, str]:
+    """
+    Load Magi personalities from system prompt files.
+    
+    Returns:
+        dict: Dictionary mapping magi names to their personality descriptions
+    """
+    personalities = {}
+    system_prompts_dir = Path(__file__).parent.parent / "templates" / "system_prompts"
+    
+    magi_names = ["balthazar", "melchior", "caspar"]
+    
+    for magi_name in magi_names:
+        prompt_file = system_prompts_dir / f"{magi_name}_system_prompt.md"
+        try:
+            if prompt_file.exists():
+                with open(prompt_file, 'r', encoding='utf-8') as f:
+                    content = f.read().strip()
+                    personalities[magi_name] = content
+                logger.info(f"✅ Loaded {magi_name} personality from {prompt_file}")
+            else:
+                logger.warning(f"⚠️ System prompt file not found: {prompt_file}")
+        except Exception as e:
+            logger.error(f"❌ Error loading {magi_name} personality: {e}")
+    
+    return personalities
+
+
 def generate_summary_rationale(
     votes_breakdown, proposal_id, network, analysis_files
 ) -> str:
@@ -20,6 +48,7 @@ def generate_summary_rationale(
     Placeholder for the LLM call to generate a summary rationale.
     """
     logger.info("--> Generatign simple concatenated rationale...")
+    github_run_id = os.getenv("GITHUB_RUN_ID", "N/A")
     aye_votes = sum(1 for v in votes_breakdown if v["decision"].upper() == "AYE")
     nay_votes = sum(1 for v in votes_breakdown if v["decision"].upper() == "NAY")
     abstain_votes = sum(
@@ -62,8 +91,10 @@ def generate_summary_rationale(
 <p>To ensure full transparency, all data and processes related to this vote are publicly available:</p>
 <ul>
     <li><strong>Manifest File:</strong> <a href="https://cybergov.b-cdn.net/proposals/{network}/{proposal_id}/manifest.json">View the full inputs and outputs.</a></li>
-    <li><strong>Execution Log:</strong> <a href="https://github.com/KarimJedda/cybergov/actions/workflows/run_{network}.yml">Verify the public GitHub pipeline run.</a></li>
+    <li><strong>Execution Log:</strong> <a href="https://github.com/KarimJedda/cybergov/actions/runs/{github_run_id}">Verify the public GitHub pipeline run and compare the manifest.json hash.</a></li>
     <li><strong>Source Content:</strong> <a href="https://cybergov.b-cdn.net/proposals/{network}/{proposal_id}/content.md">Read the content provided to the agents.</a></li>
+    <li><strong>Read about how this works:</strong> <a href="https://forum.polkadot.network/t/cybergov-v0-automating-trust-verifiable-llm-governance-on-polkadot/14796">Technical write-up.</a></li>
+    <li><strong>Request a re-vote:</strong> <a href="https://github.com/KarimJedda/cybergov/issues">Cybergov public issue tracker.</a></li>
 </ul>
 <hr>
 <h3>A Note on This System</h3>
@@ -155,12 +186,8 @@ def run_magi_evaluations(magi_models_list, local_workspace):
     analysis_dir = local_workspace / "llm_analyses"
     analysis_dir.mkdir(exist_ok=True)
 
-    # TODO load this from a file 
-    magi_personalities = {
-        "balthazar": "Magi Balthazar-1: Polkadot must win. Consider all proposals through the lens of strategic advantage and competitive positioning.",
-        "melchior": "Magi Melchior-2: Polkadot must thrive. Focus on ecosystem growth, developer activity, and user adoption.",
-        "caspar": "Magi Caspar-3: Polkadot must outlive us all. Prioritize long-term sustainability, sound economic models, and protocol resilience over short-term gains.",
-    }
+    # Load personalities from system prompt files
+    magi_personalities = load_magi_personalities()
 
     # TODO maybe pick from a random list?
     magi_llms = {
