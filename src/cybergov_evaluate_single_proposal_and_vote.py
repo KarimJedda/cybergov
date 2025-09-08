@@ -252,24 +252,16 @@ def consolidate_vote(analysis_files, local_workspace, proposal_id, network):
         is_conclusive = False
         is_unanimous = False
     else:
-        decision_counts = Counter(decisions)
         is_unanimous = len(set(decisions)) == 1
-        
-        most_common_decision, most_common_count = decision_counts.most_common(1)[0]
-        
-        # Check if there's a clear majority
-        if len(decision_counts) == 1:  # All votes are the same
-            final_decision = most_common_decision
+
+        if is_unanimous:
+            # If all votes are the same, that's our final decision.
+            final_decision = decisions[0]
+            # A conclusive vote is only cast if there is unanimity.
+            # TODO: make use of the conclusive variable or throw it out, it is redundant
             is_conclusive = True
-        elif len(decision_counts) == 2:  # Two different decisions
-            second_most_common_count = decision_counts.most_common(2)[1][1]
-            if most_common_count > second_most_common_count:
-                final_decision = most_common_decision
-                is_conclusive = True
-            else:  # Tie
-                final_decision = "Abstain"
-                is_conclusive = False
-        else:  # Three different decisions (no clear majority)
+        else:
+            # If there's any disagreement, we abstain.
             final_decision = "Abstain"
             is_conclusive = False
 
