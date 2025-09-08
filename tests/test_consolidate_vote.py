@@ -88,7 +88,7 @@ class TestConsolidateVote:
         assert "3 NAY" in vote_data["summary_rationale"]
 
     def test_split_vote_majority_aye(self, temp_workspace, sample_analysis_data, create_analysis_files, mock_proposal_data):
-        """Test consolidation with a split vote where AYE has majority."""
+        """Test consolidation with a split vote where AYE has majority. Should Abstain. """
         # Create analysis files with 2 AYE, 1 NAY
         file_data = {
             "balthazar": sample_analysis_data["balthazar_aye"],
@@ -110,8 +110,8 @@ class TestConsolidateVote:
         with open(vote_path, 'r') as f:
             vote_data = json.load(f)
         
-        assert vote_data["final_decision"] == "Aye"
-        assert vote_data["is_conclusive"] is True
+        assert vote_data["final_decision"] == "Abstain"
+        assert vote_data["is_conclusive"] is False
         assert vote_data["is_unanimous"] is False
         
         # Verify summary rationale contains expected content
