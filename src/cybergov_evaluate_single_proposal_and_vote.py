@@ -48,6 +48,7 @@ def generate_summary_rationale(
     Placeholder for the LLM call to generate a summary rationale.
     """
     logger.info("--> Generatign simple concatenated rationale...")
+    github_run_id = os.getenv("GITHUB_RUN_ID", "N/A")
     aye_votes = sum(1 for v in votes_breakdown if v["decision"].upper() == "AYE")
     nay_votes = sum(1 for v in votes_breakdown if v["decision"].upper() == "NAY")
     abstain_votes = sum(
@@ -90,8 +91,10 @@ def generate_summary_rationale(
 <p>To ensure full transparency, all data and processes related to this vote are publicly available:</p>
 <ul>
     <li><strong>Manifest File:</strong> <a href="https://cybergov.b-cdn.net/proposals/{network}/{proposal_id}/manifest.json">View the full inputs and outputs.</a></li>
-    <li><strong>Execution Log:</strong> <a href="https://github.com/KarimJedda/cybergov/actions/workflows/run_{network}.yml">Verify the public GitHub pipeline run.</a></li>
+    <li><strong>Execution Log:</strong> <a href="https://github.com/KarimJedda/cybergov/actions/runs/{github_run_id}">Verify the public GitHub pipeline run and compare the manifest.json hash.</a></li>
     <li><strong>Source Content:</strong> <a href="https://cybergov.b-cdn.net/proposals/{network}/{proposal_id}/content.md">Read the content provided to the agents.</a></li>
+    <li><strong>Read about how this works:</strong> <a href="https://forum.polkadot.network/t/cybergov-v0-automating-trust-verifiable-llm-governance-on-polkadot/14796">Technical write-up.</a></li>
+    <li><strong>Request a re-vote:</strong> <a href="https://github.com/KarimJedda/cybergov/issues">Cybergov public issue tracker.</a></li>
 </ul>
 <hr>
 <h3>A Note on This System</h3>
