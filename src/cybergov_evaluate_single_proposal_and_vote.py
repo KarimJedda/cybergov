@@ -77,17 +77,20 @@ def generate_summary_rationale(
     ## TODO get the vote number in here to inform people that this might not be the first vote (old links will go stale)
     # requires a way to edit old proposal comments, maybe for later
     summary_text = f"""
-<h1>CYBERGOV V0 - Proposal Analysis</h1>
-<h2>Vote Summary</h2>
 <p>A panel of autonomous agents reviewed this proposal, resulting in a vote of <strong>{aye_votes} AYE</strong>, <strong>{nay_votes} NAY</strong>, and <strong>{abstain_votes} ABSTAIN</strong>.</p>
-<h2>Detailed Rationales</h2>
-<h3>Balthazar voted <strong>{balthazar_decision}</strong></h3>
+<h3 style="display: inline;">Balthazar voted <u>{balthazar_decision}</u></h3>
 <blockquote>{balthazar_rationale}</blockquote>
-<h3>Melchior voted <strong>{melchior_decision}</strong></h3>
+<h3 style="display: inline;">Melchior voted <u>{melchior_decision}</u></h3>
 <blockquote>{melchior_rationale}</blockquote>
-<h3>Caspar voted <strong>{caspar_decision}</strong></h3>
+<h3 style="display: inline;">Caspar voted <u>{caspar_decision}</u></h3>
 <blockquote>{caspar_rationale}</blockquote>
-<h2>System Transparency</h2>
+<h3>Feedback</h3>
+<p>Help improve the system by letting us know if the analysis was helpful:</p>
+<ul>
+    <li><a href="https://docs.google.com/forms/d/e/1FAIpQLSdEvZEUzccs58Ez49l0RSJnuRFed2wR_QstxbrJLbOosndowg/viewform?usp=pp_url&entry.799132028=https://{network}.subsquare.io/referenda/{proposal_id}&entry.1205216491=Agree+with+the+vote&entry.1493217809=Just+right" target="_blank">👍 Helpful</a></li>
+    <li><a href="https://docs.google.com/forms/d/e/1FAIpQLSdEvZEUzccs58Ez49l0RSJnuRFed2wR_QstxbrJLbOosndowg/viewform?usp=pp_url&entry.799132028=https://{network}.subsquare.io/referenda/{proposal_id}&entry.1205216491=Disagree+with+the+vote&entry.1493217809=One+of+the+LLMs+goofed+completely" target="_blank">👎 Unhelpful</a></li>
+</ul>
+<h3>System Transparency</h3>
 <p>To ensure full transparency, all data and processes related to this vote are publicly available:</p>
 <ul>
     <li><strong>Manifest File:</strong> <a href="https://cybergov.b-cdn.net/proposals/{network}/{proposal_id}/manifest.json">View the full inputs and outputs.</a></li>
@@ -98,7 +101,7 @@ def generate_summary_rationale(
 </ul>
 <hr>
 <h3>A Note on This System</h3>
-<p>Please be aware that this analysis was produced by Large Language Models (LLMs). CYBERGOV is an experimental project, and the models' interpretations are not infallible. They can make mistakes or overlook nuance. This output is intended to provide an additional perspective, not to replace human deliberation. We encourage community feedback to help improve the system.</p>
+<p>Please be aware that this analysis was produced by Large Language Models (LLMs). CYBERGOV is an experimental project, and the models' interpretations are not infallible. They can make mistakes or overlook nuance. They also <strong>currently lack historical context</strong>, work is underway to extend CYBERGOV with embeddings and more. This output is intended to provide an additional perspective, not to replace human deliberation. We encourage community feedback to help improve the system.</p>
 <p>Further details on the project are available at the <a href="https://github.com/KarimJedda/cybergov">main repository</a>. Consider delegating to CYBERGOV :)</p>
 """
     return summary_text
