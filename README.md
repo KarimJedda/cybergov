@@ -13,9 +13,9 @@ Starting `20250923` the system will vote like so (*cybergov_truth_table_v1*):
 | LLM Agent 1    | LLM Agent 2    | LLM Agent 3    | Vote Outcome  |
 |----------|----------|----------|---------:|
 | AYE      | AYE      | AYE      | AYE      |
-| AYE      | AYE      | ABSTAIN  | AYE      | 
+| AYE      | AYE      | ABSTAIN  | **AYE**      | 
 | NAY      | NAY      | NAY      | NAY      |
-| NAY      | NAY      | ABSTAIN  | NAY      |
+| NAY      | NAY      | ABSTAIN  | **NAY**      |
 | AYE      | AYE      | NAY      | ABSTAIN  |
 | AYE      | NAY      | ABSTAIN  | ABSTAIN  |
 | AYE      | NAY      | NAY      | ABSTAIN  |
