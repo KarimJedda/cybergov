@@ -145,6 +145,141 @@ class TestConsolidateVote:
         assert vote_data["is_conclusive"] is False
         assert vote_data["is_unanimous"] is False
 
+    def test_two_aye_one_abstain_results_in_aye(self, temp_workspace, sample_analysis_data, create_analysis_files, mock_proposal_data):
+        """Two AYE and one ABSTAIN should result in final decision Aye (non-conclusive)."""
+        file_data = {
+            "balthazar": sample_analysis_data["balthazar_aye"],
+            "melchior": sample_analysis_data["melchior_aye"],
+            "caspar": sample_analysis_data["caspar_abstain"],
+        }
+
+        analysis_files = create_analysis_files(temp_workspace, file_data)
+
+        vote_path = consolidate_vote(
+            analysis_files,
+            temp_workspace,
+            mock_proposal_data["proposal_id"],
+            mock_proposal_data["network"],
+        )
+
+        with open(vote_path, "r") as f:
+            vote_data = json.load(f)
+
+        assert vote_data["final_decision"] == "Aye"
+        assert vote_data["is_conclusive"] is False
+        assert vote_data["is_unanimous"] is False
+        assert "2 AYE" in vote_data["summary_rationale"]
+        assert "0 NAY" in vote_data["summary_rationale"]
+        assert "1 ABSTAIN" in vote_data["summary_rationale"]
+
+    def test_two_nay_one_abstain_results_in_nay(self, temp_workspace, sample_analysis_data, create_analysis_files, mock_proposal_data):
+        """Two NAY and one ABSTAIN should result in final decision Nay (non-conclusive)."""
+        file_data = {
+            "balthazar": sample_analysis_data["balthazar_nay"],
+            "melchior": sample_analysis_data["melchior_nay"],
+            "caspar": sample_analysis_data["caspar_abstain"],
+        }
+
+        analysis_files = create_analysis_files(temp_workspace, file_data)
+
+        vote_path = consolidate_vote(
+            analysis_files,
+            temp_workspace,
+            mock_proposal_data["proposal_id"],
+            mock_proposal_data["network"],
+        )
+
+        with open(vote_path, "r") as f:
+            vote_data = json.load(f)
+
+        assert vote_data["final_decision"] == "Nay"
+        assert vote_data["is_conclusive"] is False
+        assert vote_data["is_unanimous"] is False
+        assert "0 AYE" in vote_data["summary_rationale"]
+        assert "2 NAY" in vote_data["summary_rationale"]
+        assert "1 ABSTAIN" in vote_data["summary_rationale"]
+
+    def test_two_nay_one_aye_results_in_abstain(self, temp_workspace, sample_analysis_data, create_analysis_files, mock_proposal_data):
+        """Two NAY and one AYE should result in final decision Abstain per decision table (non-conclusive)."""
+        file_data = {
+            "balthazar": sample_analysis_data["balthazar_nay"],
+            "melchior": sample_analysis_data["melchior_nay"],
+            "caspar": sample_analysis_data["caspar_aye"],
+        }
+
+        analysis_files = create_analysis_files(temp_workspace, file_data)
+
+        vote_path = consolidate_vote(
+            analysis_files,
+            temp_workspace,
+            mock_proposal_data["proposal_id"],
+            mock_proposal_data["network"],
+        )
+
+        with open(vote_path, "r") as f:
+            vote_data = json.load(f)
+
+        assert vote_data["final_decision"] == "Abstain"
+        assert vote_data["is_conclusive"] is False
+        assert vote_data["is_unanimous"] is False
+        assert "1 AYE" in vote_data["summary_rationale"]
+        assert "2 NAY" in vote_data["summary_rationale"]
+        assert "0 ABSTAIN" in vote_data["summary_rationale"]
+
+    def test_one_aye_two_abstain_results_in_abstain(self, temp_workspace, sample_analysis_data, create_analysis_files, mock_proposal_data):
+        """One AYE and two ABSTAIN should result in final decision Abstain (non-conclusive)."""
+        file_data = {
+            "balthazar": sample_analysis_data["balthazar_aye"],
+            "melchior": sample_analysis_data["melchior_abstain"],
+            "caspar": sample_analysis_data["caspar_abstain"],
+        }
+
+        analysis_files = create_analysis_files(temp_workspace, file_data)
+
+        vote_path = consolidate_vote(
+            analysis_files,
+            temp_workspace,
+            mock_proposal_data["proposal_id"],
+            mock_proposal_data["network"],
+        )
+
+        with open(vote_path, "r") as f:
+            vote_data = json.load(f)
+
+        assert vote_data["final_decision"] == "Abstain"
+        assert vote_data["is_conclusive"] is False
+        assert vote_data["is_unanimous"] is False
+        assert "1 AYE" in vote_data["summary_rationale"]
+        assert "0 NAY" in vote_data["summary_rationale"]
+        assert "2 ABSTAIN" in vote_data["summary_rationale"]
+
+    def test_one_nay_two_abstain_results_in_abstain(self, temp_workspace, sample_analysis_data, create_analysis_files, mock_proposal_data):
+        """One NAY and two ABSTAIN should result in final decision Abstain (non-conclusive)."""
+        file_data = {
+            "balthazar": sample_analysis_data["balthazar_nay"],
+            "melchior": sample_analysis_data["melchior_abstain"],
+            "caspar": sample_analysis_data["caspar_abstain"],
+        }
+
+        analysis_files = create_analysis_files(temp_workspace, file_data)
+
+        vote_path = consolidate_vote(
+            analysis_files,
+            temp_workspace,
+            mock_proposal_data["proposal_id"],
+            mock_proposal_data["network"],
+        )
+
+        with open(vote_path, "r") as f:
+            vote_data = json.load(f)
+
+        assert vote_data["final_decision"] == "Abstain"
+        assert vote_data["is_conclusive"] is False
+        assert vote_data["is_unanimous"] is False
+        assert "0 AYE" in vote_data["summary_rationale"]
+        assert "1 NAY" in vote_data["summary_rationale"]
+        assert "2 ABSTAIN" in vote_data["summary_rationale"]
+
     def test_all_abstain_vote(self, temp_workspace, sample_analysis_data, create_analysis_files, mock_proposal_data):
         """Test consolidation when all agents abstain."""
         # Create analysis files with all ABSTAIN votes
@@ -240,9 +375,12 @@ class TestConsolidateVote:
         
         # Check summary_rationale contains HTML structure
         summary = vote_data["summary_rationale"]
-        assert "<h1>CYBERGOV V0 - Proposal Analysis</h1>" in summary
-        assert "<h2>Vote Summary</h2>" in summary
-        assert "<h2>Detailed Rationales</h2>" in summary
+        assert "A panel of autonomous agents reviewed this proposal," in summary
+        assert "Balthazar voted" in summary
+        assert "Melchior voted" in summary
+        assert "Caspar voted" in summary
+        assert "System Transparency" in summary
+        assert "Feedback" in summary
         assert f"proposals/{mock_proposal_data['network']}/{mock_proposal_data['proposal_id']}" in summary
 
     def test_case_insensitive_decisions(self, temp_workspace, sample_analysis_data, create_analysis_files, mock_proposal_data):
