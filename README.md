@@ -4,12 +4,34 @@ An experiment to understand how LLMs can be useful for governance decisions. Ins
 
 This is a work in progress, i'm still noodling around on it. 
 
+## How the system votes
+
+Each LLM Agent votes independently. The outcome, meaning the vote cast on-chain, is defined by the table below.
+
+Starting `20250923` the system will vote like so (*cybergov_truth_table_v1*):
+
+| LLM Agent 1    | LLM Agent 2    | LLM Agent 3    | Vote Outcome  |
+|----------|----------|----------|---------:|
+| AYE      | AYE      | AYE      | AYE      |
+| AYE      | AYE      | ABSTAIN  | **AYE**      | 
+| NAY      | NAY      | NAY      | NAY      |
+| NAY      | NAY      | ABSTAIN  | **NAY**      |
+| AYE      | AYE      | NAY      | ABSTAIN  |
+| AYE      | NAY      | ABSTAIN  | ABSTAIN  |
+| AYE      | NAY      | NAY      | ABSTAIN  |
+| AYE      | ABSTAIN  | ABSTAIN  | ABSTAIN  |
+| NAY      | ABSTAIN  | ABSTAIN  | ABSTAIN  |
+| ABSTAIN  | ABSTAIN  | ABSTAIN  | ABSTAIN  |
+
+
+
 ## Links and information
 
 - [What is this?](https://forum.polkadot.network/t/decentralized-voices-cohort-5-light-track-karim-cybergov/14254)
 - [How does this work?](https://forum.polkadot.network/t/cybergov-v0-automating-trust-verifiable-llm-governance-on-polkadot/14796)
 - [What's next?](https://github.com/KarimJedda/cybergov/discussions/2)
 - [Where can I see the votes?](https://polkadot.subsquare.io/referenda/dv) (click on "Guardian")
+- 📹 [Video interview with PolkaWorld](https://www.youtube.com/watch?v=-HShKjXS6VQ)
 
 
 ## Quick links

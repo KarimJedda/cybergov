@@ -291,9 +291,24 @@ def consolidate_vote(analysis_files, local_workspace, proposal_id, network):
             # TODO: make use of the conclusive variable or throw it out, it is redundant
             is_conclusive = True
         else:
-            # If there's any disagreement, we abstain.
-            final_decision = "Abstain"
-            is_conclusive = False
+            # Apply decision table logic:
+            # - Two Aye and one Abstain -> Aye
+            # - Two Nay and one Abstain -> Nay
+            # - Any other disagreement -> Abstain
+            counts = Counter(decisions)
+            aye = counts.get("Aye", 0)
+            nay = counts.get("Nay", 0)
+            abstain = counts.get("Abstain", 0)
+
+            if aye == 2 and nay == 0:
+                final_decision = "Aye"
+                is_conclusive = False
+            elif nay == 2 and aye == 0:
+                final_decision = "Nay"
+                is_conclusive = False
+            else:
+                final_decision = "Abstain"
+                is_conclusive = False
 
     vote_data = {
         "timestamp_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
