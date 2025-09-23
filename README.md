@@ -6,7 +6,9 @@ This is a work in progress, i'm still noodling around on it.
 
 ## How the system votes
 
-After several iterations, starting `20250923` the system will vote like so:
+Each LLM Agent votes independently. The outcome, meaning the vote cast on-chain, is defined by the table below.
+
+Starting `20250923` the system will vote like so (*cybergov_truth_table_v1*):
 
 | LLM Agent 1    | LLM Agent 2    | LLM Agent 3    | Vote Outcome  |
 |----------|----------|----------|---------:|
@@ -20,6 +22,8 @@ After several iterations, starting `20250923` the system will vote like so:
 | AYE      | ABSTAIN  | ABSTAIN  | ABSTAIN  |
 | NAY      | ABSTAIN  | ABSTAIN  | ABSTAIN  |
 | ABSTAIN  | ABSTAIN  | ABSTAIN  | ABSTAIN  |
+
+
 
 ## Links and information
 
