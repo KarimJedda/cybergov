@@ -378,7 +378,7 @@ def generate_prompt_content(network: str, proposal_id: int):
         content_md = generate_content_for_magis(
             proposal_data=input_data,
             logger=logger,
-            openrouter_model="openai/gpt-4o",  # TODO make this a variable later
+            openrouter_model="openrouter/anthropic/claude-sonnet-4",  # TODO make this a variable later
             openrouter_api_key=openrouter_api_key,
             network=network
         )

@@ -194,9 +194,9 @@ def run_magi_evaluations(magi_models_list, local_workspace):
 
     # TODO maybe pick from a random list?
     magi_llms = {
-        "balthazar": "openai/gpt-4o",
+        "balthazar": "openrouter/openai/gpt-5",
         "melchior": "openrouter/google/gemini-2.5-pro-preview",
-        "caspar": "openrouter/x-ai/grok-code-fast-1",
+        "caspar": "openrouter/anthropic/claude-sonnet-4",
     }
 
     proposal_content_path = local_workspace / "content.md"
@@ -204,6 +204,8 @@ def run_magi_evaluations(magi_models_list, local_workspace):
         logger.error("Something went wrong finding proposal content")
         sys.exit(1)
     proposal_text = proposal_content_path.read_text()
+    logger.info("  — Proposal input:\n" + proposal_text.strip())
+
 
     output_files = []
     for magi_key in magi_models_list:
@@ -226,14 +228,46 @@ def run_magi_evaluations(magi_models_list, local_workspace):
             compiled_agent, personality_prompt, proposal_text
         )
 
-        # Step C: Write the result to a JSON file
+        # Step C: Log structured transparency fields and write the result to a JSON file
         output_path = analysis_dir / f"{magi_key}.json"
+        # Log transparency fields for public auditability
+        try:
+            logger.info("  — Critical analysis:\n" + prediction.critical_analysis.strip())
+        except Exception:
+            logger.warning("  — Critical analysis not available from prediction.")
+
+        try:
+            logger.info("  — Factors considered:\n" + prediction.factors_considered.strip())
+        except Exception:
+            logger.warning("  — Factors considered not available from prediction.")
+
+        try:
+            logger.info(f"  — Scores: {getattr(prediction, 'scores', '').strip()}")
+        except Exception:
+            logger.warning("  — Scores not available from prediction.")
+
+        try:
+            logger.info("  — Decision trace:\n" + prediction.decision_trace.strip())
+        except Exception:
+            logger.warning("  — Decision trace not available from prediction.")
+
+        try:
+            logger.info(f"  — Safety flags: {getattr(prediction, 'safety_flags', '').strip()}")
+        except Exception:
+            logger.warning("  — Safety flags not available from prediction.")
+
         data = {
             "model_name": model_id,
             "timestamp_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "decision": prediction.vote.strip(),
             "confidence": None,
             "rationale": prediction.rationale.strip(),
+            # Structured transparency fields
+            "critical_analysis": getattr(prediction, "critical_analysis", None),
+            "factors_considered": getattr(prediction, "factors_considered", None),
+            "scores": getattr(prediction, "scores", None),
+            "decision_trace": getattr(prediction, "decision_trace", None),
+            "safety_flags": getattr(prediction, "safety_flags", None),
             "raw_api_response": {},
         }
         with open(output_path, "w") as f:
