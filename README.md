@@ -2,7 +2,7 @@
 
 An experiment to understand how LLMs can be useful for governance decisions. Inspired from Evangelion. 
 
-This is a work in progress, i'm still noodling around on it. 
+The experiment has concluded successfully :) Please read here if you're interested to know about my learnings / results: https://karimjedda.com/cybergov-what-i-learned-running-three-ai-agents-as-blockchain-governance-delegates/
 
 ## How the system votes
 
